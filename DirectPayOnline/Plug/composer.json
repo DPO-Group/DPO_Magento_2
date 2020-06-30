@@ -1,0 +1,29 @@
+{
+    "name": "directpayonline/plug",
+    "description": "Online payments plug in powered by Direct Pay Online (3G Direct Pay Limited), credit cards, PayPal and Mobile Money",
+    "type": "magento2-module",
+    "version": "1.0.4",
+    "license": [
+        "GPL-3.0"
+    ],
+    "require": {
+        "php": "~5.5.0|~5.6.0|~7.0.0",
+        "magento/framework": "100.0.*"
+    },
+    "authors": [
+        {
+          "name": "DirectPayOnline",
+          "email": "support@3Gdirectpay.com",
+          "homepage": "http://www.3gdirectpay.com/",
+          "role": "Developer"
+        }
+    ],
+    "autoload": {
+        "files": [
+            "registration.php"
+        ],
+        "psr-4": {
+            "DirectPayOnline\\Plug\\": ""
+        }
+    }
+}
