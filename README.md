@@ -1,10 +1,10 @@
 # DPO_Magento_2
-## DPO Group Magento 2 plugin v1.0.4 for Magento v2.3.4
+## DPO Group Magento 2 plugin v1.1.0 for Magento v2.3.5
 
 This is the DPO Group plugin for Magento 2. Please feel free to contact the [DPO Group support team](https://www.dpogroup.com/africa/support/) should you require any assistance.
 
 ## Installation
-Please navigate to the [releases page](https://github.com/DirectPay-Online/DPO_Magento_2/releases), download the latest release (v1.0.4) and unzip. You will them be able to follow the integration guide which is included in the zip.
+Please navigate to the [releases page](https://github.com/DirectPay-Online/DPO_Magento_2/releases), download the latest release (v1.1.0) and unzip. You will them be able to follow the integration guide which is included in the zip.
 
 ## Collaboration
 
