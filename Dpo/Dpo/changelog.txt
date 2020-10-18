@@ -1,0 +1,22 @@
+=====================================
+Date	  : Version: Description
+=====================================
+2020-10-18: v1.1.0: Refactor codebase to match other DPO plugins.
+
+2020-08-17: v1.0.7: Changed cancel handling and updated deprecated code
+                    Added configuration for initial order status
+
+2020-07-30: v1.0.6: Changed order classes and added xrf
+
+2020-07-28: v1.0.5: Added <TransactionSource>
+
+2020-06-30: v1.0.4: Updated endpoints to V6.
+                    Customer country / dial code fix.
+
+v1.0.3: Place order bug fix.
+
+v1.0.2: Added SSL version update to cURL and DPO URL changed to v6.
+
+v1.0.1: Code improvements.
+
+v1.0.0: First release to Magento Marketplace.
