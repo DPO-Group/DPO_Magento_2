@@ -1,6 +1,10 @@
 =====================================
 Date	  : Version: Description
 =====================================
+2021-01-14: v1.1.1: Magento 2.4 compatibility.
+                    Add KES and UGX to supported currencies.
+                    Use SVG logo.
+
 2020-10-18: v1.1.0: Refactor codebase to match other DPO plugins.
 
 2020-08-17: v1.0.7: Changed cancel handling and updated deprecated code
