@@ -42,7 +42,7 @@ class Config extends AbstractConfig
      * Currency codes supported by Dpo methods
      * @var string[]
      */
-    protected $_supportedCurrencyCodes = ['USD', 'EUR', 'GPD', 'ZAR'];
+    protected $_supportedCurrencyCodes = ['USD', 'EUR', 'GPD', 'ZAR', 'KES', 'UGX'];
 
     /**
      * @var \Psr\Log\LoggerInterface
@@ -168,7 +168,7 @@ class Config extends AbstractConfig
      */
     public function getPaymentMarkImageUrl()
     {
-        return $this->_assetRepo->getUrl( 'Dpo_Dpo::images/logo.png' );
+        return $this->_assetRepo->getUrl( 'Dpo_Dpo::images/logo.svg' );
     }
 
     /**
