@@ -73,15 +73,13 @@ define(
                     pvalue[i] = value;
                     i = i + 1;
                   });
-                  jQuery('#dpoButton').after('<div id=\'payPopup\'></div>');
+                  jQuery('#dpoButton').after('<div id=\'payPopup\' style="display:none;"></div>');
                   var html = '<div id="payPopupContent">';
-                  // html += '<form target="myIframe" name="dpo_checkout" id="dpo_checkout" method="get" action="' +
                   html += '<form name="dpo_checkout" id="dpo_checkout" method="get" action="' +
                       pvalue[0] + '">';
                   html += '<input type="hidden" name="' + pkey[1] +
                       '" value="' + pvalue[1] + '" />';
                   html += '</form>';
-                  // html += '<iframe id="payPopupFrame" name="myIframe" src="#"></iframe>';
                   html += '<script type="text/javascript">document.getElementById("dpo_checkout").submit();</script>';
                   html += '</div>';
                   jQuery('#payPopup').append(html);

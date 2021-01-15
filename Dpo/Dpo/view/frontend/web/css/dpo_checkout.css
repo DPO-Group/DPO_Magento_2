@@ -1,7 +1,7 @@
 /* The popup (background) */
 
 #payPopup {
-    display: block;
+    display: none;
     /* Shows the popup */
     position: fixed;
     z-index: 9999999999;
@@ -63,4 +63,7 @@
     /* Close button hover color */
     text-decoration: none;
     cursor: pointer;
+}
+img.payment-icon {
+    max-width: 30%;
 }

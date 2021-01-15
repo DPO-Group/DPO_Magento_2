@@ -33,6 +33,11 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
     protected $dataFactory;
 
     /**
+     * @var Magento\Sales\Model\Order\Payment\Transaction\Builder $_transactionBuilder
+     */
+    protected $_transactionBuilder;
+
+    /**
      * Success constructor.
      * @param \Magento\Framework\App\Action\Context $context
      * @param \Magento\Framework\View\Result\PageFactory $pageFactory
@@ -54,9 +59,29 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
      * @param \Magento\Framework\Stdlib\DateTime\DateTime $date
      * @param TransactionDataFactory $dataFactory
      */
-    public function __construct( \Magento\Framework\App\Action\Context $context, \Magento\Framework\View\Result\PageFactory $pageFactory, \Magento\Customer\Model\Session $customerSession, \Magento\Checkout\Model\Session $checkoutSession, \Magento\Sales\Model\OrderFactory $orderFactory, \Magento\Framework\Session\Generic $DpoSession, \Magento\Framework\Url\Helper\Data $urlHelper, \Magento\Customer\Model\Url $customerUrl, \Psr\Log\LoggerInterface $logger, \Magento\Framework\DB\TransactionFactory $transactionFactory, \Magento\Sales\Model\Service\InvoiceService $invoiceService, \Magento\Sales\Model\Order\Email\Sender\InvoiceSender $invoiceSender, Dpo $paymentMethod, \Magento\Framework\UrlInterface $urlBuilder, \Magento\Sales\Api\OrderRepositoryInterface $orderRepository, \Magento\Store\Model\StoreManagerInterface $storeManager, \Magento\Sales\Model\Order\Email\Sender\OrderSender $OrderSender, \Magento\Framework\Stdlib\DateTime\DateTime $date, TransactionDataFactory $dataFactory )
-    {
-        $this->dataFactory = $dataFactory;
+    public function __construct(
+        \Magento\Framework\App\Action\Context $context,
+        \Magento\Framework\View\Result\PageFactory $pageFactory,
+        \Magento\Customer\Model\Session $customerSession,
+        \Magento\Checkout\Model\Session $checkoutSession,
+        \Magento\Sales\Model\OrderFactory $orderFactory,
+        \Magento\Framework\Session\Generic $DpoSession,
+        \Magento\Framework\Url\Helper\Data $urlHelper,
+        \Magento\Customer\Model\Url $customerUrl,
+        \Psr\Log\LoggerInterface $logger,
+        \Magento\Framework\DB\TransactionFactory $transactionFactory,
+        \Magento\Sales\Model\Service\InvoiceService $invoiceService,
+        \Magento\Sales\Model\Order\Email\Sender\InvoiceSender $invoiceSender,
+        Dpo $paymentMethod, \Magento\Framework\UrlInterface $urlBuilder,
+        \Magento\Sales\Api\OrderRepositoryInterface $orderRepository,
+        \Magento\Store\Model\StoreManagerInterface $storeManager,
+        \Magento\Sales\Model\Order\Email\Sender\OrderSender $OrderSender,
+        \Magento\Framework\Stdlib\DateTime\DateTime $date,
+        \Magento\Sales\Model\Order\Payment\Transaction\Builder $_transactionBuilder,
+        TransactionDataFactory $dataFactory
+    ) {
+        $this->dataFactory         = $dataFactory;
+        $this->_transactionBuilder = $_transactionBuilder;
 
         parent::__construct( $context, $pageFactory, $customerSession, $checkoutSession, $orderFactory, $DpoSession, $urlHelper, $customerUrl, $logger, $transactionFactory, $invoiceService, $invoiceSender, $paymentMethod, $urlBuilder, $orderRepository, $storeManager, $OrderSender, $date );
     }
@@ -76,38 +101,29 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
      */
     public function execute()
     {
-        $pre = __METHOD__ . " : ";
+        $order       = $this->_checkoutSession->getLastRealOrder();
+        $request     = $this->getRequest();
+        $Requestdata = $request->getParams();
+        $pre         = __METHOD__ . " : ";
         $this->_logger->debug( $pre . 'bof' );
         $page_object = $this->pageFactory->create();
         $transaction = $this->dataFactory->create();
         try {
-            // Get the user session
+            //Get the user session
             $this->_order = $this->_checkoutSession->getLastRealOrder();
             $baseurl      = $this->_storeManager->getStore()->getBaseUrl();
-            if ( isset( $_GET['TransactionToken'] ) ) {
-                $transToken = $_GET['TransactionToken'];
-                $reference  = $_GET['CompanyRef'];
+            if ( isset( $Requestdata['TransactionToken'] ) ) {
+                $transToken = $Requestdata['TransactionToken'];
+                $reference  = $Requestdata['CompanyRef'];
                 $testText   = substr( $reference, -6 );
                 $reference  = substr( $reference, 0, -6 );
 
-                $dpo = new Dpopay( $testText === 'teston' ? true : false );
-
-                //Get Merchant Token from db
-                $transactions = $transaction->getCollection();
-                $matches      = [];
-                foreach ( $transactions as $item ) {
-                    if ( $item->getData( 'recordid' ) === $transToken ) {
-                        $matches[] = $item->getData( 'id' );
-                        if ( $item->getData( 'recordtype' ) === 'dpoclient' ) {
-                            $merchantToken = $item->getData( 'recordval' );
-                        }
-                    }
-                }
-
+                $dpo                  = new Dpopay( $testText === 'teston' ? true : false );
                 $data                 = [];
                 $data['transToken']   = $transToken;
-                $data['companyToken'] = $merchantToken;
+                $data['companyToken'] = $this->getPaymentConfig( 'company_token' );
                 $verify               = $dpo->verifyToken( $data );
+
                 if ( $verify != '' ) {
                     $verify = new \SimpleXMLElement( $verify );
                     switch ( $verify->Result->__toString() ) {
@@ -126,12 +142,9 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
                     $status = 0;
                 }
 
-                foreach ( $transactions as $item ) {
-                    $item->delete();
-                }
-
                 switch ( $status ) {
                     case 1:
+                        $this->prepareTransactionData( $order, $Requestdata, 'captured' );
                         $status = \Magento\Sales\Model\Order::STATE_PROCESSING;
                         if ( $this->getConfigData( 'Successful_Order_status' ) != "" ) {
                             $status = $this->getConfigData( 'Successful_Order_status' );
@@ -176,16 +189,18 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
                         echo '<script>parent.location="' . $baseurl . 'checkout/onepage/success";</script>';
                         break;
                     case 2:
+                        $this->prepareTransactionData( $order, $Requestdata, 'declined' );
                         $this->messageManager->addNotice( 'Transaction has been declined.' );
-                        $this->_order->addStatusHistoryComment( __( 'Redirect Response, Transaction has been declined, Reference: ' . $_POST['REFERENCE'] ) )->setIsCustomerNotified( false );
+                        $this->_order->addStatusHistoryComment( __( 'Redirect Response, Transaction has been declined, Reference: ' . $order->getIncrementId() ) )->setIsCustomerNotified( false );
                         $this->_order->cancel()->save();
                         $this->_checkoutSession->restoreQuote();
                         echo '<script>window.top.location.href="' . $baseurl . 'checkout/cart/";</script>';
                         break;
                     case 0:
                     case 4:
+                        $this->prepareTransactionData( $order, $Requestdata, 'cancelled' );
                         $this->messageManager->addNotice( 'Transaction has been cancelled' );
-                        $this->_order->addStatusHistoryComment( __( 'Redirect Response, Transaction has been cancelled, Reference: ' . $_POST['REFERENCE'] ) )->setIsCustomerNotified( false );
+                        $this->_order->addStatusHistoryComment( __( 'Redirect Response, Transaction has been cancelled, Reference: ' . $order->getIncrementId() ) )->setIsCustomerNotified( false );
                         $this->_order->cancel()->save();
                         $this->_checkoutSession->restoreQuote();
                         echo '<script>window.top.location.href="' . $baseurl . 'checkout/cart/";</script>';
@@ -205,5 +220,75 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
         }
 
         return '';
+    }
+
+    public function prepareTransactionData( $order, $data, $paymentStatus )
+    {
+        $Payment                    = array();
+        $Payment['status']          = $paymentStatus;
+        $Payment['reference']       = $order->getIncrementId();
+        $Payment['txn_id']          = $data['TransID'];
+        $Payment['additional_data'] = $data;
+        $order                      = $this->getOrderByIncrementId( $Payment['reference'] );
+
+        $this->createTransaction( $order, $Payment );
+    }
+
+    public function createTransaction( $order, $paymentData = array() )
+    {
+        try {
+            // Get payment object from order object
+            $payment = $order->getPayment();
+            $payment->setLastTransId( $paymentData['txn_id'] )
+                ->setTransactionId( $paymentData['txn_id'] )
+                ->setAdditionalInformation( [\Magento\Sales\Model\Order\Payment\Transaction::RAW_DETAILS => (array) $paymentData] );
+            $formatedPrice = $order->getBaseCurrency()->formatTxt(
+                $order->getGrandTotal()
+            );
+
+            $message = __( 'The authorized amount is %1.', $formatedPrice );
+            if ( $paymentData['status'] == "captured" ) {
+                $type = \Magento\Sales\Model\Order\Payment\Transaction::TYPE_CAPTURE;
+            } else {
+                $type = \Magento\Sales\Model\Order\Payment\Transaction::TYPE_VOID;
+            }
+            // Get builder class
+            $trans       = $this->_transactionBuilder;
+            $transaction = $trans->setPayment( $payment )
+                ->setOrder( $order )
+                ->setTransactionId( $paymentData['txn_id'] )
+                ->setAdditionalInformation(
+                    [\Magento\Sales\Model\Order\Payment\Transaction::RAW_DETAILS => (array) $paymentData['additional_data']]
+                )
+                ->setFailSafe( true )
+            // Build method creates the transaction and returns the object
+                ->build( $type );
+
+            $payment->addTransactionCommentsToOrder(
+                $transaction,
+                $message
+            );
+            $payment->setParentTransactionId( null );
+            $payment->save();
+            $order->save();
+
+            return $transaction->save()->getTransactionId();
+        } catch ( Exception $e ) {
+            // Log errors here if needed
+        }
+    }
+
+    public function getOrderByIncrementId( $incrementId )
+    {
+        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+        $order         = $objectManager->get( '\Magento\Sales\Model\Order' )->loadByIncrementId( $incrementId );
+        return $order;
+    }
+
+    public function getPaymentConfig( $field )
+    {
+        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+        $scopeConfig   = $objectManager->get( 'Magento\Framework\App\Config\ScopeConfigInterface' );
+        return $scopeConfig->getValue( "payment/dpo/$field" );
     }
 }

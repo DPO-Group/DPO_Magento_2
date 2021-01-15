@@ -374,7 +374,7 @@ class Dpo extends \Magento\Payment\Model\Method\AbstractMethod
         $data['customerPhone']     = $billing->getTelephone();
         $data['customerEmail']     = $billing->getEmail();
         $data['redirectURL']       = $this->_urlBuilder->getUrl( 'dpo/redirect/success', array( '_secure' => true ) );
-        $data['backUrl']           = $this->_urlBuilder->getUrl( 'checkout/cart', array( '_secure' => true ) );
+        $data['backUrl']           = $this->_urlBuilder->getUrl( 'dpo/redirect/success', array( '_secure' => true ) );
         $companyRef                = $data['companyRef']                = $order->getRealOrderId();
 
         $tokens = $dpo->createToken( $data );

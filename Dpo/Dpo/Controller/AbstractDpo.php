@@ -200,6 +200,7 @@ abstract class AbstractDpo extends AppAction implements RedirectLoginInterface
      */
     protected function _initCheckout()
     {
+		
 
         $pre = __METHOD__ . " : ";
         $this->_logger->debug( $pre . 'bof' );
@@ -217,9 +218,8 @@ abstract class AbstractDpo extends AppAction implements RedirectLoginInterface
         }
 
         // Set the initial order status and state to that configured in the payment method
-        $this->_order->setStatus($configDetails['order_status']);
-        $this->_order->setState($configDetails['order_status']);
-        $this->_orderRepository->save($this->_order);
+
+        $this->orderRepository->save($this->_order);
 
         if ( $this->_order->getQuoteId() ) {
             $this->_checkoutSession->setDpoQuoteId( $this->_checkoutSession->getQuoteId() );
