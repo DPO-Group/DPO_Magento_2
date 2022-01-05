@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright (c) 2020 PayGate (Pty) Ltd
+ * Copyright (c) 2022 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -17,7 +17,7 @@ use Magento\Store\Model\ScopeInterface;
  */
 abstract class AbstractConfig implements ConfigInterface
 {
-    /**#@+
+    /**
      * Payment actions
      */
     const PAYMENT_ACTION_SALE = 'Sale';
@@ -25,7 +25,7 @@ abstract class AbstractConfig implements ConfigInterface
     const PAYMENT_ACTION_AUTH = 'Authorization';
 
     const PAYMENT_ACTION_ORDER = 'Order';
-    /**#@-*/
+
 
     /**
      * Current payment method code
@@ -144,9 +144,7 @@ abstract class AbstractConfig implements ConfigInterface
                 ScopeInterface::SCOPE_STORE,
                 $this->_storeId
             );
-            $value = $this->_prepareValue( $underscored, $value );
-
-            return $value;
+            return $this->_prepareValue( $underscored, $value );
         }
 
         return null;
@@ -230,25 +228,22 @@ abstract class AbstractConfig implements ConfigInterface
      */
     public function isMethodActive( $method )
     {
-        switch ( $method ) {
-            case Config::METHOD_CODE:
-                $isEnabled = $this->_scopeConfig->isSetFlag(
-                    'payment/' . Config::METHOD_CODE . '/active',
-                    ScopeInterface::SCOPE_STORE, $this->_storeId
-                ) ||
-                $this->_scopeConfig->isSetFlag(
-                    'payment/' . Config::METHOD_CODE . '/active',
-                    ScopeInterface::SCOPE_STORE,
-                    $this->_storeId
-                );
-                $method = Config::METHOD_CODE;
-                break;
-            default:
-                $isEnabled = $this->_scopeConfig->isSetFlag(
-                    "payment/{$method}/active",
-                    ScopeInterface::SCOPE_STORE,
-                    $this->_storeId
-                );
+
+        if ($method==Config::METHOD_CODE){
+
+            $isEnabled = $this->_scopeConfig->isSetFlag(
+                'payment/' . Config::METHOD_CODE . '/active',
+                ScopeInterface::SCOPE_STORE, $this->_storeId
+            );
+            $method = Config::METHOD_CODE;
+
+        }else{
+
+            $isEnabled = $this->_scopeConfig->isSetFlag(
+                "payment/{$method}/active",
+                ScopeInterface::SCOPE_STORE,
+                $this->_storeId
+            );
         }
 
         return $this->isMethodSupportedForCountry( $method ) && $isEnabled;

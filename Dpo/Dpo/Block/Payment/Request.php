@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright (c) 2020 PayGate (Pty) Ltd
+ * Copyright (c) 2022 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -69,5 +69,16 @@ class Request extends Template
         $this->readFactory     = $readFactory;
         $this->reader          = $reader;
         $this->_paymentMethod  = $paymentMethod;
+    }
+
+    public function _prepareLayout()
+    {
+        $this->setMessage( 'Redirecting to DPO Group' )
+            ->setId( 'dpo_checkout' )
+            ->setName( 'dpo_checkout' )
+            ->setFormData( $this->_paymentMethod->getStandardCheckoutFormFields() )
+            ->setSubmitForm( '<script type="text/javascript">document.getElementById( "dpo_checkout" ).submit();</script>' );
+
+        return parent::_prepareLayout();
     }
 }

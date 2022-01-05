@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright (c) 2020 PayGate (Pty) Ltd
+ * Copyright (c) 2022 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -11,7 +11,24 @@ namespace Dpo\Dpo\Controller;
 use Dpo\Dpo\Model\Dpo;
 use Magento\Checkout\Controller\Express\RedirectLoginInterface;
 use Magento\Framework\App\Action\Action as AppAction;
-
+use Magento\Framework\App\Action\Context;
+use Magento\Framework\View\Result\PageFactory;
+use Magento\Customer\Model\Session as CustomerSession;
+use Magento\Checkout\Model\Session as CheckoutSession;
+use Magento\Sales\Model\OrderFactory;
+use Magento\Framework\Session\Generic;
+use Magento\Framework\Url\Helper\Data;
+use Magento\Customer\Model\Url;
+use Psr\Log\LoggerInterface;
+use Magento\Framework\DB\TransactionFactory ;
+use Magento\Sales\Model\Service\InvoiceService;
+use Magento\Sales\Model\Order\Email\Sender\InvoiceSender;
+use Magento\Framework\UrlInterface;
+use Magento\Sales\Api\OrderRepositoryInterface;
+use Magento\Store\Model\StoreManagerInterface;
+use Magento\Sales\Model\Order\Email\Sender\OrderSender;
+use Magento\Framework\Stdlib\DateTime\DateTime;
+use Magento\Framework\Data\Form\FormKey;
 /**
  * Checkout Controller
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
@@ -23,12 +40,10 @@ abstract class AbstractDpo extends AppAction implements RedirectLoginInterface
      *
      * @var array
      */
-    protected $_checkoutTypes = [];
 
     /**
      * @var \Dpo\Dpo\Model\Config
      */
-    protected $_config;
 
     /**
      * @var \Magento\Quote\Model\Quote
@@ -40,7 +55,6 @@ abstract class AbstractDpo extends AppAction implements RedirectLoginInterface
      *
      * @var string
      */
-    protected $_configType = 'Dpo\Dpo\Model\Config';
 
     /** Config method type @var string */
     protected $_configMethod = \Dpo\Dpo\Model\Config::METHOD_CODE;
@@ -50,7 +64,6 @@ abstract class AbstractDpo extends AppAction implements RedirectLoginInterface
      *
      * @var string
      */
-    protected $_checkoutType;
 
     /**
      * @var \Magento\Customer\Model\Session
@@ -107,6 +120,7 @@ abstract class AbstractDpo extends AppAction implements RedirectLoginInterface
      */
     protected $_paymentMethod;
     protected $orderRepository;
+
     /**
      * @param \Magento\Framework\App\Action\Context $context
      * @param \Magento\Framework\View\Result\PageFactory $pageFactory
@@ -116,34 +130,43 @@ abstract class AbstractDpo extends AppAction implements RedirectLoginInterface
      * @param \Magento\Framework\Session\Generic $DpoSession
      * @param \Magento\Framework\Url\Helper\Data $urlHelper
      * @param \Magento\Customer\Model\Url $customerUrl
+     * @param LoggerInterface $logger
      * @param \Magento\Framework\DB\TransactionFactory $transactionFactory
+     * @param InvoiceService $invoiceService
+     * @param InvoiceSender $invoiceSender
      * @param \Dpo\Dpo\Model\Dpo $paymentMethod
+     * @param UrlInterface $urlBuilder
+     * @param OrderRepositoryInterface $orderRepository
+     * @param StoreManagerInterface $storeManager
+     * @param OrderSender $OrderSender
+     * @param DateTime $date
+     * @param FormKey $formKey
      */
     public function __construct(
-        \Magento\Framework\App\Action\Context $context,
-        \Magento\Framework\View\Result\PageFactory $pageFactory,
-        \Magento\Customer\Model\Session $customerSession,
-        \Magento\Checkout\Model\Session $checkoutSession,
-        \Magento\Sales\Model\OrderFactory $orderFactory,
-        \Magento\Framework\Session\Generic $DpoSession,
-        \Magento\Framework\Url\Helper\Data $urlHelper,
-        \Magento\Customer\Model\Url $customerUrl,
-        \Psr\Log\LoggerInterface $logger,
-        \Magento\Framework\DB\TransactionFactory $transactionFactory,
-        \Magento\Sales\Model\Service\InvoiceService $invoiceService,
-        \Magento\Sales\Model\Order\Email\Sender\InvoiceSender $invoiceSender,
-        \Dpo\Dpo\Model\Dpo $paymentMethod,
-        \Magento\Framework\UrlInterface $urlBuilder,
-        \Magento\Sales\Api\OrderRepositoryInterface $orderRepository,
-        \Magento\Store\Model\StoreManagerInterface $storeManager,
-        \Magento\Sales\Model\Order\Email\Sender\OrderSender $OrderSender,
-        \Magento\Framework\Stdlib\DateTime\DateTime $date
+        Context $context,
+        PageFactory $pageFactory,
+        CustomerSession $customerSession,
+        CheckoutSession $checkoutSession,
+        OrderFactory $orderFactory,
+        Generic $DpoSession,
+        Data $urlHelper,
+        Url $customerUrl,
+        LoggerInterface $logger,
+        TransactionFactory $transactionFactory,
+        InvoiceService $invoiceService,
+        InvoiceSender $invoiceSender,
+        Dpo $paymentMethod,
+        UrlInterface $urlBuilder,
+        OrderRepositoryInterface $orderRepository,
+        StoreManagerInterface $storeManager,
+        OrderSender $OrderSender,
+        DateTime $date,
+        FormKey $formKey
     ) {
         // CsrfAwareAction Magento2.3 compatibility
         if ( interface_exists( "\Magento\Framework\App\CsrfAwareActionInterface" ) ) {
             $request = $this->getRequest();
             if ( $request instanceof HttpRequest && $request->isPost() && empty( $request->getParam( 'form_key' ) ) ) {
-                $formKey = $this->_objectManager->get( \Magento\Framework\Data\Form\FormKey::class );
                 $request->setParam( 'form_key', $formKey->getFormKey() );
             }
         }
@@ -172,9 +195,6 @@ abstract class AbstractDpo extends AppAction implements RedirectLoginInterface
         $this->_date               = $date;
 
         parent::__construct( $context );
-
-        $parameters    = ['params' => [$this->_configMethod]];
-        $this->_config = $this->_objectManager->create( $this->_configType, $parameters );
 
         $this->_logger->debug( $pre . 'eof' );
     }
@@ -264,15 +284,6 @@ abstract class AbstractDpo extends AppAction implements RedirectLoginInterface
         }
 
         return $this->_quote;
-    }
-
-    /**
-     * Returns before_auth_url redirect parameter for customer session
-     * @return null
-     */
-    public function getCustomerBeforeAuthUrl()
-    {
-        return;
     }
 
     /**

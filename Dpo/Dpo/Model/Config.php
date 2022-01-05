@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright (c) 2020 PayGate (Pty) Ltd
+ * Copyright (c) 2022 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -42,7 +42,29 @@ class Config extends AbstractConfig
      * Currency codes supported by Dpo methods
      * @var string[]
      */
-    protected $_supportedCurrencyCodes = ['USD', 'EUR', 'GPD', 'ZAR', 'KES', 'UGX'];
+    protected $_supportedCurrencyCodes = [
+        'USD',
+        'EUR',
+        'GBP',
+        'ZAR', // South Africa, Lesotho, Namibia
+        'BWP', // Botswana
+        'XOF', // Burkina Faso, Ivory Coast, Senegal, Togo
+        'CDF', // DR Congo
+        'SZL', // Eswatini
+        'ETB', // Ethiopia
+        'GHS', // Ghana
+        'KES', // Kenya
+        'LSL', // Lesotho
+        'MWK', // Malawi
+        'MUR', // Mauritius
+        'NGN', // Nigeria
+        'RWF', // Rwanda
+        'TZS', // Tanzania, Zanzibar
+        'AED', // UAE
+        'UGX', // Uganda
+        'ZMW', // Zambia
+        'ZWL', // Zimbabwe
+    ];
 
     /**
      * @var \Psr\Log\LoggerInterface
@@ -75,14 +97,14 @@ class Config extends AbstractConfig
         \Magento\Framework\View\Asset\Repository $assetRepo
     ) {
         $this->_logger = $logger;
-        parent::__construct( $scopeConfig );
+        parent::__construct($scopeConfig);
         $this->directoryHelper = $directoryHelper;
         $this->_storeManager   = $storeManager;
         $this->_assetRepo      = $assetRepo;
 
-        $this->setMethod( 'dpo' );
+        $this->setMethod('dpo');
         $currentStoreId = $this->_storeManager->getStore()->getStoreId();
-        $this->setStoreId( $currentStoreId );
+        $this->setStoreId($currentStoreId);
     }
 
     /**
@@ -90,12 +112,13 @@ class Config extends AbstractConfig
      * Logic based on merchant country, methods dependence
      *
      * @param string|null $methodCode
+     *
      * @return bool
      * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      */
-    public function isMethodAvailable( $methodCode = null )
+    public function isMethodAvailable($methodCode = null)
     {
-        return parent::isMethodAvailable( $methodCode );
+        return parent::isMethodAvailable($methodCode);
     }
 
     /**
@@ -115,7 +138,7 @@ class Config extends AbstractConfig
      */
     public function getMerchantCountry()
     {
-        return $this->directoryHelper->getDefaultCountry( $this->_storeId );
+        return $this->directoryHelper->getDefaultCountry($this->_storeId);
     }
 
     /**
@@ -124,29 +147,31 @@ class Config extends AbstractConfig
      *
      * @param string|null $method
      * @param string|null $countryCode
+     *
      * @return bool
      */
-    public function isMethodSupportedForCountry( $method = null, $countryCode = null )
+    public function isMethodSupportedForCountry($method = null, $countryCode = null)
     {
-        if ( $method === null ) {
+        if ($method === null) {
             $method = $this->getMethodCode();
         }
 
-        if ( $countryCode === null ) {
+        if ($countryCode === null) {
             $countryCode = $this->getMerchantCountry();
         }
 
-        return in_array( $method, $this->getCountryMethods( $countryCode ) );
+        return in_array($method, $this->getCountryMethods($countryCode));
     }
 
     /**
      * Return list of allowed methods for specified country iso code
      *
      * @param string|null $countryCode 2-letters iso code
+     *
      * @return array
      * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
      */
-    public function getCountryMethods( $countryCode = null )
+    public function getCountryMethods($countryCode = null)
     {
         $countryMethods = [
             'other' => [
@@ -154,10 +179,11 @@ class Config extends AbstractConfig
             ],
 
         ];
-        if ( $countryCode === null ) {
+        if ($countryCode === null) {
             return $countryMethods;
         }
-        return isset( $countryMethods[$countryCode] ) ? $countryMethods[$countryCode] : $countryMethods['other'];
+
+        return isset($countryMethods[$countryCode]) ? $countryMethods[$countryCode] : $countryMethods['other'];
     }
 
     /**
@@ -168,7 +194,7 @@ class Config extends AbstractConfig
      */
     public function getPaymentMarkImageUrl()
     {
-        return $this->_assetRepo->getUrl( 'Dpo_Dpo::images/logo.svg' );
+        return $this->_assetRepo->getUrl('Dpo_Dpo::images/logo.svg');
     }
 
     /**
@@ -191,11 +217,11 @@ class Config extends AbstractConfig
     {
         $paymentAction = null;
         $pre           = __METHOD__ . ' : ';
-        $this->_logger->debug( $pre . 'bof' );
+        $this->_logger->debug($pre . 'bof');
 
-        $action = $this->getValue( 'paymentAction' );
+        $action = $this->getValue('paymentAction');
 
-        switch ( $action ) {
+        switch ($action) {
             case self::PAYMENT_ACTION_AUTH:
                 $paymentAction = \Magento\Payment\Model\Method\AbstractMethod::ACTION_AUTHORIZE;
                 break;
@@ -205,9 +231,11 @@ class Config extends AbstractConfig
             case self::PAYMENT_ACTION_ORDER:
                 $paymentAction = \Magento\Payment\Model\Method\AbstractMethod::ACTION_ORDER;
                 break;
+            default:
+                break;
         }
 
-        $this->_logger->debug( $pre . 'eof : paymentAction is ' . $paymentAction );
+        $this->_logger->debug($pre . 'eof : paymentAction is ' . $paymentAction);
 
         return $paymentAction;
     }
@@ -216,20 +244,21 @@ class Config extends AbstractConfig
      * Check whether specified currency code is supported
      *
      * @param string $code
+     *
      * @return bool
      */
-    public function isCurrencyCodeSupported( $code )
+    public function isCurrencyCodeSupported($code)
     {
         $supported = false;
         $pre       = __METHOD__ . ' : ';
 
-        $this->_logger->debug( $pre . "bof and code: {$code}" );
+        $this->_logger->debug($pre . "bof and code: {$code}");
 
-        if ( in_array( $code, $this->_supportedCurrencyCodes ) ) {
+        if (in_array($code, $this->_supportedCurrencyCodes)) {
             $supported = true;
         }
 
-        $this->_logger->debug( $pre . "eof and supported : {$supported}" );
+        $this->_logger->debug($pre . "eof and supported : {$supported}");
 
         return $supported;
     }
@@ -238,13 +267,15 @@ class Config extends AbstractConfig
      * Check whether specified locale code is supported. Fallback to en_US
      *
      * @param string|null $localeCode
+     *
      * @return string
      */
-    protected function _getSupportedLocaleCode( $localeCode = null )
+    protected function _getSupportedLocaleCode($localeCode = null)
     {
-        if ( !$localeCode || !in_array( $localeCode, $this->_supportedImageLocales ) ) {
+        if ( ! $localeCode || ! in_array($localeCode, $this->_supportedImageLocales)) {
             return 'en_US';
         }
+
         return $localeCode;
     }
 
@@ -253,10 +284,11 @@ class Config extends AbstractConfig
      * Map Dpo config fields
      *
      * @param string $fieldName
+     *
      * @return string|null
      * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      */
-    protected function _mapDpoFieldset( $fieldName )
+    protected function _mapDpoFieldset($fieldName)
     {
         return "payment/{$this->_methodCode}/{$fieldName}";
     }
@@ -265,12 +297,13 @@ class Config extends AbstractConfig
      * Map any supported payment method into a config path by specified field name
      *
      * @param string $fieldName
+     *
      * @return string|null
      * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      * @SuppressWarnings(PHPMD.NPathComplexity)
      */
-    protected function _getSpecificConfigPath( $fieldName )
+    protected function _getSpecificConfigPath($fieldName)
     {
-        return $this->_mapDpoFieldset( $fieldName );
+        return $this->_mapDpoFieldset($fieldName);
     }
 }

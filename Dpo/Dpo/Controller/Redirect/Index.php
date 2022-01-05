@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright (c) 2020 PayGate (Pty) Ltd
+ * Copyright (c) 2022 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -30,7 +30,7 @@ class Index extends AbstractDpo
      * @var string
      */
     protected $_configMethod = Config::METHOD_CODE;
-
+    const CARTURL            = "checkout/cart";
     /**
      * Execute
      */
@@ -45,15 +45,24 @@ class Index extends AbstractDpo
         } catch ( \Magento\Framework\Exception\LocalizedException $e ) {
             $this->_logger->error( $pre . $e->getMessage() );
             $this->messageManager->addExceptionMessage( $e, $e->getMessage() );
-            $this->_redirect( 'checkout/cart' );
+            $this->_redirect( self::CARTURL );
         } catch ( \Exception $e ) {
             $this->_logger->error( $pre . $e->getMessage() );
             $this->messageManager->addExceptionMessage( $e, __( 'We can\'t start Dpo Checkout.' ) );
-            $this->_redirect( 'checkout/cart' );
+            $this->_redirect( self::CARTURL );
+        }
+        $block = $page_object->getLayout()->getBlock( 'dpo' )->setPaymentFormData( isset( $order ) ? $order : null );
+            
+        $formData = $block->getFormData();
+        if(!$formData){
+            $this->_logger->error("We can\'t start DPO Group Checkout.");
+            $this->_redirect( self::CARTURL );
         }
 
         return $page_object;
     }
 
+    #Magento\Checkout\Controller\Express\RedirectLoginInterface::getCustomerBeforeAuthUrl
+    public function getCustomerBeforeAuthUrl(){}
 
 }

@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright (c) 2020 Dpo (Pty) Ltd
+ * Copyright (c) 2022 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
