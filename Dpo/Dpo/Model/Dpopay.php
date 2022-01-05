@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright (c) 2020 PayGate (Pty) Ltd
+ * Copyright (c) 2022 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -18,8 +18,9 @@ class Dpopay
     private $dpoGateway;
     private $testMode;
     private $testText;
+    private $logger;
 
-    public function __construct( $testMode = false )
+    public function __construct($logger, $testMode = false)
     {
         if ( (int) $testMode == 1 ) {
             $this->dpoUrl   = self::DPO_URL_TEST;
@@ -30,6 +31,8 @@ class Dpopay
             $this->testMode = false;
             $this->testText = 'liveon';
         }
+
+        $this->logger = $logger;
         $this->dpoGateway = $this->dpoUrl . '/payv2.php';
 
     }
@@ -46,6 +49,8 @@ class Dpopay
      */
     public function createToken( $data )
     {
+        $pre = __METHOD__ . ' : ';
+
         $companyToken      = $data['companyToken'];
         $accountType       = $data['accountType'];
         $paymentAmount     = $data['paymentAmount'];
@@ -59,6 +64,9 @@ class Dpopay
         $backURL           = $data['backUrl'];
         $customerEmail     = $data['customerEmail'];
         $reference         = $data['companyRef'] . '_' . $this->testText;
+        $country           = $data['payment_country'];
+        $country_id        = $data['payment_country'];
+        $zip               = $data['payment_postcode'];
 
         $odate   = date( 'Y/m/d H:i' );
         $postXml = <<<POSTXML
@@ -74,10 +82,14 @@ class Dpopay
         <customerLastName>$customerLastName</customerLastName>
         <customerAddress>$customerAddress</customerAddress>
         <customerCity>$customerCity</customerCity>
+        <customerZip>$zip</customerZip>
+        <customerCountry>$country</customerCountry>
+        <customerDialCode>$country_id</customerDialCode>
         <customerPhone>$customerPhone</customerPhone>
         <RedirectURL>$redirectURL</RedirectURL>
         <BackURL>$backURL</BackURL>
         <customerEmail>$customerEmail</customerEmail>
+        <TransactionSource>magento</TransactionSource>
         </Transaction>
         <Services>
         <Service>
@@ -105,9 +117,10 @@ POSTXML;
         ) );
 
         $response = curl_exec( $curl );
+
         $error    = curl_error( $curl );
         if ( $error ) {
-            var_dump( $error );
+            $this->logger->debug( $pre . 'error : ' . json_encode($error) );
         }
 
         curl_close( $curl );
@@ -117,6 +130,8 @@ POSTXML;
 
             // Check if token was created successfully
             if ( $xml->xpath( 'Result' )[0] != '000' ) {
+                $this->logger->debug( $pre . 'response : ' . json_encode($response) );
+                throw new \Magento\Framework\Webapi\Exception(__( 'Token could not be created. Please check debug log.' ));
                 exit();
             } else {
                 $transToken        = $xml->xpath( 'TransToken' )[0]->__toString();
@@ -133,7 +148,10 @@ POSTXML;
                 ];
             }
         } else {
-            throw new \Exception( 'Token could not be created. Please go back and try again' );
+
+            $this->logger->debug( $pre . 'response : ' . json_encode($response) );
+            $this->logger->debug('Token could not be created. Please go back and try again');
+            throw new \Magento\Framework\Webapi\Exception(__( 'Token could not be created. Please go back and try again' ));
         }
     }
 
@@ -173,8 +191,11 @@ POSTXML;
             } else {
                 return $response;
             }
-        } catch ( Exception $e ) {
-            throw $e;
+        } catch ( \Exception $e ) {
+
+            $this->logger->debug($e->getMessage());
+
+            throw new Magento\Framework\Webapi\Exception(__( $e->getMessage() ));
         }
     }
 }

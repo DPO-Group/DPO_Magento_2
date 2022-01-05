@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright (c) 2020 PayGate (Pty) Ltd
+ * Copyright (c) 2022 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -97,7 +97,7 @@ class DpoConfigProvider implements ConfigProviderInterface
     {
         $pre = __METHOD__ . ' : ';
         $this->_logger->debug( $pre . 'bof' );
-        $config = [
+        $inlineConfig = [
             'payment' => [
                 'dpo' => [
                     'paymentAcceptanceMarkSrc'  => $this->config->getPaymentMarkImageUrl(),
@@ -108,13 +108,13 @@ class DpoConfigProvider implements ConfigProviderInterface
 
         foreach ( $this->methodCodes as $code ) {
             if ( $this->methods[$code]->isAvailable() ) {
-                $config['payment']['dpo']['redirectUrl'][$code]          = $this->getMethodRedirectUrl( $code );
-                $config['payment']['dpo']['billingAgreementCode'][$code] = $this->getBillingAgreementCode( $code );
+                $inlineConfig['payment']['dpo']['redirectUrl'][$code]          = $this->getMethodRedirectUrl( $code );
+                $inlineConfig['payment']['dpo']['billingAgreementCode'][$code] = $this->getBillingAgreementCode( $code );
 
             }
         }
-        $this->_logger->debug( $pre . 'eof', $config );
-        return $config;
+        $this->_logger->debug( $pre . 'eof', $inlineConfig );
+        return $inlineConfig;
     }
 
     /**
@@ -128,7 +128,7 @@ class DpoConfigProvider implements ConfigProviderInterface
         $pre = __METHOD__ . ' : ';
         $this->_logger->debug( $pre . 'bof' );
 
-        $methodUrl = $this->methods[$code]->getCheckoutRedirectUrl();
+        $methodUrl = $this->methods[$code]->getOrderPlaceRedirectUrl();
 
         $this->_logger->debug( $pre . 'eof' );
         return $methodUrl;

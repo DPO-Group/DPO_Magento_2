@@ -1,12 +1,12 @@
 <?php
-/*
- * Copyright (c) 2020 PayGate (Pty) Ltd
+/**
+ * Copyright (c) 2022 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
  * Released under the GNU General Public License
  */
-namespace Dpo\Dpo\Block\Dpo;
+namespace Dpo\Dpo\Block;
 
 use Dpo\Dpo\Helper\Data;
 use Dpo\Dpo\Model\Config;
@@ -53,6 +53,11 @@ class Form extends \Magento\Payment\Block\Form
     protected $currentCustomer;
 
     /**
+     * @var LoggerInterface
+     */
+    protected $_logger;
+
+    /**
      * @param Context $context
      * @param ConfigFactory $dpoConfigFactory
      * @param ResolverInterface $localeResolver
@@ -68,6 +73,7 @@ class Form extends \Magento\Payment\Block\Form
         CurrentCustomer $currentCustomer,
         array $data = []
     ) {
+        $this->_logger = $context->getLogger();
         $pre = __METHOD__ . " : ";
         $this->_logger->debug( $pre . 'bof' );
         $this->_dpoData         = $dpoData;

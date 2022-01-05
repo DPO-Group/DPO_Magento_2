@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright (c) 2020 PayGate (Pty) Ltd
+ * Copyright (c) 2022 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -24,12 +24,10 @@ class Info
      * Apply a filter upon value getting
      *
      * @param string $value
-     * @param string $key
-     *
      * @return string
      * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      */
-    protected function _getValue( $value, $key )
+    protected function _getValue($value)
     {
         $label       = '';
         $outputValue = implode( ', ', (array) $value );

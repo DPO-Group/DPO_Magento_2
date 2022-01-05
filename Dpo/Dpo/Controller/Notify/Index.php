@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright (c) 2020 PayGate (Pty) Ltd
+ * Copyright (c) 2022 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -11,6 +11,10 @@ namespace Dpo\Dpo\Controller\Notify;
 class Index extends \Dpo\Dpo\Controller\AbstractDpo
 {
     private $storeId;
+    /**
+     * @var array|false
+     */
+    private $dpo_data;
 
     /**
      * indexAction
@@ -20,81 +24,80 @@ class Index extends \Dpo\Dpo\Controller\AbstractDpo
     {
         // Dpo API expects response of 'OK' for Notify function
         echo "OK";
-        $errors   = false;
-        $dpo_data = array();
+
+        // Get notify data
+        $this->dpo_data = $this->getPostData();
+
+
+        if ( !empty($this->dpo_data) && $this->securitySignatureIsValid()) {
+
+            $this->updateOrderAdditionalPaymentInfo();
+        }
+    }
+
+    //check if signature is valid
+    private function securitySignatureIsValid(): bool
+    {
 
         $notify_data = array();
-        $post_data   = '';
-        // Get notify data
-        if ( !$errors ) {
-            $dpo_data = $this->getPostData();
-            if ( $dpo_data === false ) {
-                $errors = true;
-            }
-        }
-
-        $mode = $this->getConfigData( 'test_mode' );
-
-        // Verify security signature
         $checkSumParams = '';
-        if ( !$errors ) {
 
-            foreach ( $dpo_data as $key => $val ) {
-                $post_data .= $key . '=' . $val . "\n";
-                $notify_data[$key] = stripslashes( $val );
 
-                if ( $key == 'DPO_ID' ) {
-                    $checkSumParams .= $val;
-                }
-                if ( $key != 'CHECKSUM' && $key != 'DPO_ID' ) {
-                    $checkSumParams .= $val;
-                }
+        foreach ( $this->dpo_data as $key => $val ) {
+            $notify_data[$key] = stripslashes( $val );
 
-                if ( sizeof( $notify_data ) == 0 ) {
-                    $errors = true;
-                }
+            if ( $key == 'DPO_ID' ) {
+                $checkSumParams .= $val;
             }
-            if ( $this->getConfigData( 'test_mode' ) != '0' ) {
-                $service_type = 'secret';
-            } else {
-                $service_type = $this->getConfigData( 'service_type' );
+            if ( $key != 'CHECKSUM' && $key != 'DPO_ID' ) {
+                $checkSumParams .= $val;
             }
-            $checkSumParams .= $service_type;
-        }
 
-        // Verify security signature
-        if ( !$errors ) {
-            $checkSumParams = md5( $checkSumParams );
-            if ( $checkSumParams != $notify_data['CHECKSUM'] ) {
-                $errors = true;
+            if (empty( $notify_data )) {
+                return false;
             }
         }
-
-        if ( !$errors ) {
-            // Load order
-
-            $orderId       = $dpo_data['REFERENCE'];
-            $this->_order  = $this->_orderFactory->create()->loadByIncrementId( $orderId );
-            $this->storeId = $this->_order->getStoreId();
-
-            $status = $dpo_data['TRANSACTION_STATUS'];
-
-            // Update order additional payment information
-
-            if ( $status == 1 ) {
-                $this->_order->setStatus( \Magento\Sales\Model\Order::STATE_PROCESSING );
-                $this->_order->save();
-                $this->_order->addStatusHistoryComment( "Notify Response, Transaction has been approved, TransactionID: " . $dpo_data['TRANSACTION_ID'], \Magento\Sales\Model\Order::STATE_PROCESSING )->setIsCustomerNotified( false )->save();
-            } elseif ( $status == 2 ) {
-                $this->_order->setStatus( \Magento\Sales\Model\Order::STATE_CANCELED );
-                $this->_order->save();
-                $this->_order->addStatusHistoryComment( "Notify Response, The User Failed to make Payment with Dpo due to transaction being declined, TransactionID: " . $dpo_data['TRANSACTION_ID'], \Magento\Sales\Model\Order::STATE_PROCESSING )->setIsCustomerNotified( false )->save();
-            } elseif ( $status == 0 || $status == 4 ) {
-                $this->_order->setStatus( \Magento\Sales\Model\Order::STATE_CANCELED );
-                $this->_order->save();
-                $this->_order->addStatusHistoryComment( "Notify Response, The User Cancelled Payment with Dpo, PayRequestID: " . $dpo_data['PAY_REQUEST_ID'], \Magento\Sales\Model\Order::STATE_CANCELED )->setIsCustomerNotified( false )->save();
-            }
+        if ( $this->getConfigData( 'test_mode' ) != '0' ) {
+            $service_type = 'secret';
+        } else {
+            $service_type = $this->getConfigData( 'service_type' );
         }
+        $checkSumParams .= $service_type;
+
+        $checkSumParams = md5( $checkSumParams );
+
+        if ( $checkSumParams != $notify_data['CHECKSUM'] ) {
+            return false;
+        }
+
+        return true;
+    }
+
+    //Update order additional payment information
+    private function updateOrderAdditionalPaymentInfo(){
+
+
+        $orderId       = $this->dpo_data['REFERENCE'];
+        $this->_order  = $this->_orderFactory->create()->loadByIncrementId( $orderId );
+        $this->storeId = $this->_order->getStoreId();
+
+        $status = $this->dpo_data['TRANSACTION_STATUS'];
+
+
+        if ( $status == 1 ) {
+            $this->_order->setStatus( \Magento\Sales\Model\Order::STATE_PROCESSING );
+            $this->_order->save();
+            $this->_order->addStatusHistoryComment( "Notify Response, Transaction has been approved, TransactionID: " . $this->dpo_data['TRANSACTION_ID'], \Magento\Sales\Model\Order::STATE_PROCESSING )->setIsCustomerNotified( false )->save();
+        } elseif ( $status == 2 ) {
+            $this->_order->setStatus( \Magento\Sales\Model\Order::STATE_CANCELED );
+            $this->_order->save();
+            $this->_order->addStatusHistoryComment( "Notify Response, The User Failed to make Payment with Dpo due to transaction being declined, TransactionID: " . $this->dpo_data['TRANSACTION_ID'], \Magento\Sales\Model\Order::STATE_PROCESSING )->setIsCustomerNotified( false )->save();
+        } elseif ( $status == 0 || $status == 4 ) {
+            $this->_order->setStatus( \Magento\Sales\Model\Order::STATE_CANCELED );
+            $this->_order->save();
+            $this->_order->addStatusHistoryComment( "Notify Response, The User Cancelled Payment with Dpo, PayRequestID: " . $this->dpo_data['PAY_REQUEST_ID'], \Magento\Sales\Model\Order::STATE_CANCELED )->setIsCustomerNotified( false )->save();
+        }
+
     }
 
     // Retrieve post data
@@ -109,13 +112,16 @@ class Index extends \Dpo\Dpo\Controller\AbstractDpo
         }
 
         // Return "false" if no data was received
-        if ( sizeof( $nData ) == 0 ) {
+        if ( empty( $nData )) {
             return ( false );
         } else {
             return ( $nData );
         }
 
     }
+
+    #Magento\Checkout\Controller\Express\RedirectLoginInterface::getCustomerBeforeAuthUrl
+    public function getCustomerBeforeAuthUrl(){}
 
     /**
      * saveInvoice

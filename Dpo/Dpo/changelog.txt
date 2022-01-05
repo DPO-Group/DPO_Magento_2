@@ -1,6 +1,14 @@
 =====================================
 Date	  : Version: Description
 =====================================
+2022-01-05: v1.1.2: Remove duplicate code.
+                    Improve functions and variables.
+                    Replace object manager.
+                    Add all known supported currencies.
+                    Remove legacy iFrame support.
+                    Add transaction source.
+                    Fix namespace error.
+
 2021-01-14: v1.1.1: Magento 2.4 compatibility.
                     Add KES and UGX to supported currencies.
                     Use SVG logo.

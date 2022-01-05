@@ -1,6 +1,6 @@
 <!--
 /*
- * Copyright (c) 2020 PayGate (Pty) Ltd
+ * Copyright (c) 2022 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -16,7 +16,8 @@
         <label data-bind="attr: {'for': getCode()}" class="label">
             <!-- Dpo Logo -->
             <img data-bind="attr: {src: getPaymentAcceptanceMarkSrc(), alt: $t('Acceptance Mark')}"
-                 class="payment-icon"/>
+                 class="payment-icon"
+                alt=""/> <!-- empty alt gets replaced by knockout js' alt: $t('Acceptance Mark') -->
             <!-- Dpo Logo -->
             <span data-bind="text: getTitle()"></span>
         </label>

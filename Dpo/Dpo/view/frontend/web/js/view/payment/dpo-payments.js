@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2020 PayGate (Pty) Ltd
+ * Copyright (c) 2022 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
- *
+ * 
  * Released under the GNU General Public License
  */
 /*browser:true*/
