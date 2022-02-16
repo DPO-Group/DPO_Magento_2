@@ -4,6 +4,7 @@
 This is the DPO Group plugin for Magento 2. Please feel free to contact the [DPO Group support team](https://dpogroup.com/contact-us/) should you require any assistance.
 
 ## Installation
+[![How To Setup DPO Group for Magento 2](https://appinlet.com/wp-content/uploads/2022/02/How-To-Setup-DPO-Group-for-Magento-2.jpg)](https://www.youtube.com/watch?v=hMxQA-kAVzE "How To Setup DPO Group for Magento 2")
 
 Please navigate to the [releases page](https://github.com/DPO-Group/DPO_Magento_2/releases), download the latest release (v1.1.2) and unzip. You will then be able to follow the integration guide which is included in the zip.
 
