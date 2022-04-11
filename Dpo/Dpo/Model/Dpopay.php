@@ -70,35 +70,7 @@ class Dpopay
 
         $odate   = date( 'Y/m/d H:i' );
         $postXml = <<<POSTXML
-        <?xml version="1.0" encoding="utf-8"?>
-        <API3G>
-        <CompanyToken>$companyToken</CompanyToken>
-        <Request>createToken</Request>
-        <Transaction>
-        <PaymentAmount>$paymentAmount</PaymentAmount>
-        <PaymentCurrency>$paymentCurrency</PaymentCurrency>
-        <CompanyRef>$reference</CompanyRef>
-        <customerFirstName>$customerFirstName</customerFirstName>
-        <customerLastName>$customerLastName</customerLastName>
-        <customerAddress>$customerAddress</customerAddress>
-        <customerCity>$customerCity</customerCity>
-        <customerZip>$zip</customerZip>
-        <customerCountry>$country</customerCountry>
-        <customerDialCode>$country_id</customerDialCode>
-        <customerPhone>$customerPhone</customerPhone>
-        <RedirectURL>$redirectURL</RedirectURL>
-        <BackURL>$backURL</BackURL>
-        <customerEmail>$customerEmail</customerEmail>
-        <TransactionSource>magento</TransactionSource>
-        </Transaction>
-        <Services>
-        <Service>
-        <ServiceType>$accountType</ServiceType>
-        <ServiceDescription>$reference</ServiceDescription>
-        <ServiceDate>$odate</ServiceDate>
-        </Service>
-        </Services>
-        </API3G>
+        <?xml version="1.0" encoding="utf-8"?> <API3G> <CompanyToken>$companyToken</CompanyToken> <Request>createToken</Request> <Transaction> <PaymentAmount>$paymentAmount</PaymentAmount> <PaymentCurrency>$paymentCurrency</PaymentCurrency> <CompanyRef>$reference</CompanyRef> <customerFirstName>$customerFirstName</customerFirstName> <customerLastName>$customerLastName</customerLastName> <customerAddress>$customerAddress</customerAddress> <customerCity>$customerCity</customerCity> <customerZip>$zip</customerZip> <customerCountry>$country</customerCountry> <customerDialCode>$country_id</customerDialCode> <customerPhone>$customerPhone</customerPhone> <RedirectURL>$redirectURL</RedirectURL> <BackURL>$backURL</BackURL> <customerEmail>$customerEmail</customerEmail> <TransactionSource>magento</TransactionSource> </Transaction> <Services> <Service> <ServiceType>$accountType</ServiceType> <ServiceDescription>$reference</ServiceDescription> <ServiceDate>$odate</ServiceDate> </Service> </Services> </API3G>
 POSTXML;
 
         $curl = curl_init();
