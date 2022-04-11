@@ -59,7 +59,7 @@ class Dpopay
         $customerLastName  = $data['customerLastName'];
         $customerAddress   = $data['customerAddress'];
         $customerCity      = $data['customerCity'];
-        $customerPhone     = $data['customerPhone'];
+        $customerPhone     = preg_replace( '/[^0-9]/', '', $data['customerPhone'] );
         $redirectURL       = $data['redirectURL'];
         $backURL           = $data['backUrl'];
         $customerEmail     = $data['customerEmail'];
