@@ -1,0 +1,55 @@
+<!--
+/*
+ * Copyright (c) 2022 DPO Group
+ *
+ * Author: App Inlet (Pty) Ltd
+ *
+ * Released under the GNU General Public License
+ */
+-->
+<!--suppress HtmlFormInputWithoutLabel -->
+<div class="payment-method" data-bind="css: {'_active': (getCode() == isChecked())}">
+    <div class="payment-method-title field choice">
+        <input class="radio"
+               data-bind="attr: {'id': getCode()}, value: getCode(), checked: isChecked, click: selectPaymentMethod, visible: isRadioButtonVisible()"
+               name="payment[method]"
+               type="radio"/>
+        <label class="label" data-bind="attr: {'for': getCode()}">
+            <!-- Dpo Logo -->
+            <img alt=""
+                 class="payment-icon"
+                 data-bind="attr: {src: getPaymentAcceptanceMarkSrc(), alt: $t('Acceptance Mark')}"/>
+            <!-- empty alt gets replaced by knockout js' alt: $t('Acceptance Mark') -->
+            <!-- Dpo Logo -->
+            <span data-bind="text: getTitle()"></span>
+        </label>
+    </div>
+    <div class="payment-method-content">
+        <div class="payment-method-billing-address">
+            <!-- ko foreach: $parent.getRegion(getBillingAddressFormName()) -->
+            <!-- ko template: getTemplate() --><!-- /ko -->
+            <!--/ko-->
+        </div>
+
+        <div class="checkout-agreements-block">
+            <!-- ko foreach: $parent.getRegion('before-place-order') -->
+            <!-- ko template: getTemplate() --><!-- /ko -->
+            <!--/ko-->
+        </div>
+        <div class="actions-toolbar" style="display:block;">
+            <div class="primary">
+                <button class="action primary checkout" data-bind="click: placeOrder,
+                        attr: {title: $t('Place Order')},
+                        css: {disabled: !isPlaceOrderActionAllowed()},
+                        enable: (getCode() == isChecked())"
+                        disabled id="dpoButton" type="submit">
+                    <span data-bind="text: $t('Place Order')"></span>
+                </button>
+
+
+            </div>
+        </div>
+    </div>
+</div>
+
+
