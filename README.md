@@ -5,7 +5,13 @@ This is the DPO Group plugin for Magento 2. Please feel free to contact the [DPO
 
 ## Installation
 
-Please navigate to the [releases page](https://github.com/DPO-Group/DPO_Magento_2/releases), download the latest release (v1.1.3) and unzip. You will then be able to follow the integration guide which is included in the zip.
+You can install this module using composer:
+
+```console
+composer require dpo/dpo-gateway
+```
+
+Alternatively, please navigate to the [releases page](https://github.com/DPO-Group/DPO_Magento_2/releases), download the latest release (v1.1.4) and unzip. You will then be able to follow the integration guide which is included in the zip.
 
 ## Collaboration
 
