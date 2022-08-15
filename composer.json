@@ -1,0 +1,22 @@
+{
+  "name": "dpo/dpo-gateway",
+  "description": "DPO Pay Payment Gateway for Magento 2",
+  "type": "magento2-module",
+  "minimum-stability": "stable",
+  "license": "GPL-3.0",
+  "authors": [
+    {
+      "name": "App Inlet (Pty) Ltd",
+      "email": "info@appinlet.com"
+    }
+  ],
+  "require": {
+    "php": "^8.1"
+  },
+  "autoload": {
+    "files": ["dpo/dpo-gateway/registration.php"],
+    "psr-4": {
+      "Dpo\\Dpo\\": "dpo/dpo-gateway"
+    }
+  }
+}

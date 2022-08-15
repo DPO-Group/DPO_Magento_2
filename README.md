@@ -1,5 +1,5 @@
 # DPO_Magento_2
-## DPO Group Magento 2 plugin v1.1.3 for Magento v2.4.3
+## DPO Pay Magento 2 plugin v1.1.4 for Magento v2.4.5
 
 This is the DPO Group plugin for Magento 2. Please feel free to contact the [DPO Group support team](https://dpogroup.com/contact-us/) should you require any assistance.
 
