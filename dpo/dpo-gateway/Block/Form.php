@@ -1,4 +1,5 @@
 <?php
+
 /** @noinspection PhpMissingFieldTypeInspection */
 
 /** @noinspection PhpUnused */
@@ -6,7 +7,7 @@
 /** @noinspection PhpUndefinedNamespaceInspection */
 
 /**
- * Copyright (c) 2022 DPO Group
+ * Copyright (c) 2023 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -121,5 +122,4 @@ class Form extends \Magento\Payment\Block\Form
 
         return null;
     }
-
 }

@@ -1,10 +1,11 @@
 <?php
+
 /** @noinspection PhpUnused */
 
 /** @noinspection PhpUndefinedNamespaceInspection */
 
 /*
- * Copyright (c) 2022 DPO Group
+ * Copyright (c) 2023 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -18,8 +19,8 @@ use JetBrains\PhpStorm\ArrayShape;
 
 class Dpopay
 {
-    const DPO_URL_LIVE  = 'https://secure.3gdirectpay.com';
-    const RESPONSE_TEXT = 'response : ';
+    public const DPO_URL_LIVE  = 'https://secure.3gdirectpay.com';
+    public const RESPONSE_TEXT = 'response : ';
     public bool $testMode;
     private string $dpoUrl;
     private string $dpoGateway;
@@ -114,16 +115,19 @@ POSTXML;
             try {
                 $xml = simplexml_load_string($response);
 
+                $result            = $xml->xpath('Result')[0]->__toString();
+                $resultExplanation = $xml->xpath('ResultExplanation')[0]->__toString();
+
                 // Check if token was created successfully
-                if ($xml->xpath('Result')[0] != '000') {
+                if ($result != '000') {
                     $this->logger->debug($pre . self::RESPONSE_TEXT . json_encode($response));
-                    throw new \Magento\Framework\Webapi\Exception(
-                        __('Token could not be created. Please check debug log.')
-                    );
+
+                    return [
+                        'success'           => false,
+                        'resultExplanation' => $resultExplanation
+                    ];
                 } else {
                     $transToken        = $xml->xpath('TransToken')[0]->__toString();
-                    $result            = $xml->xpath('Result')[0]->__toString();
-                    $resultExplanation = $xml->xpath('ResultExplanation')[0]->__toString();
                     $transRef          = $xml->xpath('TransRef')[0]->__toString();
 
                     return [
@@ -164,7 +168,7 @@ POSTXML;
         try {
             $curl = curl_init();
             curl_setopt_array($curl, array(
-                CURLOPT_URL            => $this->dpoUrl . "/API/v6/",
+                CURLOPT_URL            => $this->dpoUrl . "/API/v7/",
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_ENCODING       => "",
                 CURLOPT_MAXREDIRS      => 10,

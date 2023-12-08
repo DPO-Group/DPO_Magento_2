@@ -1,4 +1,5 @@
 <?php
+
 /** @noinspection PhpUnused */
 
 /** @noinspection PhpUndefinedFieldInspection */
@@ -6,7 +7,7 @@
 /** @noinspection PhpUndefinedNamespaceInspection */
 
 /*
- * Copyright (c) 2022 DPO Group
+ * Copyright (c) 2023 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -34,11 +35,10 @@ use Psr\Log\LoggerInterface;
  */
 class Config extends AbstractConfig
 {
-
     /**
      * @var Dpo this is a model which we will use.
      */
-    const METHOD_CODE = 'dpo';
+    public const METHOD_CODE = 'dpo';
 
     /**
      * Core
@@ -285,7 +285,7 @@ class Config extends AbstractConfig
      */
     protected function _getSupportedLocaleCode(string $localeCode = null): string
     {
-        if ( ! $localeCode || ! in_array($localeCode, $this->_supportedImageLocales)) {
+        if (! $localeCode || ! in_array($localeCode, $this->_supportedImageLocales)) {
             return 'en_US';
         }
 

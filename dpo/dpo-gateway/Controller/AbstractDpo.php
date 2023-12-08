@@ -1,4 +1,5 @@
 <?php
+
 /** @noinspection PhpUnused */
 
 /** @noinspection PhpPropertyOnlyWrittenInspection */
@@ -10,7 +11,7 @@
 /** @noinspection PhpUndefinedMethodInspection */
 
 /*
- * Copyright (c) 2022 DPO Group
+ * Copyright (c) 2023 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -287,7 +288,7 @@ abstract class AbstractDpo extends AppAction implements RedirectLoginInterface
         $this->_logger->debug($pre . 'bof');
         $this->_order = $this->_checkoutSession->getLastRealOrder();
 
-        if ( ! $this->_order->getId()) {
+        if (! $this->_order->getId()) {
             $this->getResponse()->setStatusHeader(404, '1.1', 'Not found');
             throw new LocalizedException(__('We could not find "Order" for processing'));
         }
@@ -339,11 +340,10 @@ abstract class AbstractDpo extends AppAction implements RedirectLoginInterface
      */
     protected function _getQuote(): bool|Quote
     {
-        if ( ! $this->_quote) {
+        if (! $this->_quote) {
             $this->_quote = $this->_getCheckoutSession()->getQuote();
         }
 
         return $this->_quote;
     }
-
 }

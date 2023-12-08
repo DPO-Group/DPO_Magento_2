@@ -1,14 +1,11 @@
 <?php
 
-
 namespace Dpo\Dpo\Model;
-
 
 use JetBrains\PhpStorm\Pure;
 
 class CountryData
 {
-
     #[Pure] public static function getCountries(): array
     {
         return array_merge(self::getCountriesAToM(), self::getCountriesNToZ());
@@ -264,5 +261,4 @@ class CountryData
             "ZW" => array("ZIMBABWE", "ZW", "ZWE", "716"),
         );
     }
-
 }

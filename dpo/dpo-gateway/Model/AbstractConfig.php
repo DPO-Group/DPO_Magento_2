@@ -1,4 +1,5 @@
 <?php
+
 /** @noinspection PhpUnused */
 
 /** @noinspection PhpUnusedParameterInspection */
@@ -6,7 +7,7 @@
 /** @noinspection PhpUndefinedNamespaceInspection */
 
 /*
- * Copyright (c) 2022 DPO Group
+ * Copyright (c) 2023 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -28,11 +29,11 @@ abstract class AbstractConfig implements ConfigInterface
     /**
      * Payment actions
      */
-    const PAYMENT_ACTION_SALE = 'Sale';
+    public const PAYMENT_ACTION_SALE = 'Sale';
 
-    const PAYMENT_ACTION_AUTH = 'Authorization';
+    public const PAYMENT_ACTION_AUTH = 'Authorization';
 
-    const PAYMENT_ACTION_ORDER = 'Order';
+    public const PAYMENT_ACTION_ORDER = 'Order';
     /**
      * Core store config
      *
