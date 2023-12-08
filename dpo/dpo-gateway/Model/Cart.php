@@ -1,4 +1,5 @@
 <?php
+
 /** @noinspection PhpUndefinedFieldInspection */
 
 /** @noinspection PhpUnused */
@@ -10,7 +11,7 @@
 /** @noinspection PhpUndefinedClassConstantInspection */
 
 /*
- * Copyright (c) 2022 DPO Group
+ * Copyright (c) 2023 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -41,7 +42,7 @@ class Cart extends \Magento\Payment\Model\Cart
     {
         $this->_collectItemsAndAmounts();
 
-        if ( ! $this->_areAmountsValid) {
+        if (! $this->_areAmountsValid) {
             $subtotal = $this->getSubtotal() + $this->getTax();
 
             if (empty($this->_transferFlags[self::AMOUNT_SHIPPING])) {
@@ -129,7 +130,7 @@ class Cart extends \Magento\Payment\Model\Cart
 
         $areItemsValid = $areItemsValid && $this->_areAmountsValid;
 
-        if ( ! $areItemsValid) {
+        if (! $areItemsValid) {
             $this->_salesModelItems = [];
             $this->_customItems     = [];
         }
@@ -164,7 +165,7 @@ class Cart extends \Magento\Payment\Model\Cart
             // Aggregate item price if item qty * price does not match row total
             $itemBaseRowTotal = $item->getOriginalItem()->getBaseRowTotal();
             if ($amount * $qty != $itemBaseRowTotal) {
-                $amount             = (double)$itemBaseRowTotal;
+                $amount             = (float)$itemBaseRowTotal;
                 $subAggregatedLabel = ' x' . $qty;
                 $qty                = 1;
             }
@@ -207,7 +208,7 @@ class Cart extends \Magento\Payment\Model\Cart
         SalesModelInterface $salesEntity
     ) {
         $dataContainer = $salesEntity->getTaxContainer();
-        $this->addTax((double)$dataContainer->getBaseDiscountTaxCompensationAmount());
-        $this->addTax((double)$dataContainer->getBaseShippingDiscountTaxCompensationAmnt());
+        $this->addTax((float)$dataContainer->getBaseDiscountTaxCompensationAmount());
+        $this->addTax((float)$dataContainer->getBaseShippingDiscountTaxCompensationAmnt());
     }
 }

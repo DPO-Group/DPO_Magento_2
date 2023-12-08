@@ -1,8 +1,9 @@
 <?php
+
 /** @noinspection PhpUnused */
 
 /*
- * Copyright (c) 2022 DPO Group
+ * Copyright (c) 2023 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -37,5 +38,4 @@ class Info
 
         return sprintf('#%s%s', $outputValue, $outputValue == $label ? '' : ': ' . $label);
     }
-
 }

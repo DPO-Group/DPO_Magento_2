@@ -1,4 +1,5 @@
 <?php
+
 /** @noinspection PhpUnused */
 
 /** @noinspection PhpUndefinedFieldInspection */
@@ -8,7 +9,7 @@
 /** @noinspection PhpUndefinedMethodInspection */
 
 /*
- * Copyright (c) 2022 DPO Group
+ * Copyright (c) 2023 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -32,7 +33,7 @@ use Magento\Framework\View\Result\PageFactory;
  */
 class Index extends AbstractDpo
 {
-    const CARTURL = "checkout/cart";
+    public const CARTURL = "checkout/cart";
     /**
      * @var PageFactory
      */
@@ -67,7 +68,10 @@ class Index extends AbstractDpo
         $block = $page_object->getLayout()->getBlock('dpo')->setPaymentFormData(null);
 
         $formData = $block->getFormData();
-        if ( ! $formData) {
+        if (isset($formData['success']) && $formData['success'] === false) {
+            $this->messageManager->addErrorMessage(__($formData["resultExplanation"]));
+            $this->_redirect(self::CARTURL);
+        } elseif (! $formData) {
             $this->_logger->error("We can\'t start DPO Pay Checkout.");
             $this->_redirect(self::CARTURL);
         }
@@ -80,5 +84,4 @@ class Index extends AbstractDpo
     {
         //  Class contains 1 abstract method and must therefore be declared abstract or implement the remaining methods
     }
-
 }

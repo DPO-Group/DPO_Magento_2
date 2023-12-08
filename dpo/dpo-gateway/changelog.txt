@@ -1,6 +1,12 @@
 =====================================
 Date	  : Version: Description
 =====================================
+2023-12-08: v1.1.5: Tested with Magento 2.4.6.
+                    Decline transactions if the reference and order ID don't match.
+                    Code quality improvements.
+                    Show DPO failed response when token cannot be created.
+                    Use Magento Store Manager to get the store ID.
+
 2022-08-15: v1.1.4: Magento 2.4.5 and PHP 8.1 compatible.
                     DPO Pay branding.
                     Code quality improvements and bug fixes.

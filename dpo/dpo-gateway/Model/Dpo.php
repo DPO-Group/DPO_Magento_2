@@ -1,4 +1,5 @@
 <?php
+
 /** @noinspection PhpMissingFieldTypeInspection */
 
 /** @noinspection PhpUnused */
@@ -14,7 +15,7 @@
 /** @noinspection PhpUndefinedMethodInspection */
 
 /*
- * Copyright (c) 2022 DPO Group
+ * Copyright (c) 2023 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -51,7 +52,6 @@ use Magento\Store\Model\ScopeInterface;
 use Magento\Store\Model\Store;
 use Magento\Store\Model\StoreManagerInterface;
 use SimpleXMLElement;
-
 
 /**
  * @SuppressWarnings(PHPMD.TooManyFields)
@@ -261,15 +261,22 @@ class Dpo extends AbstractMethod
      * Store setter
      * Also updates store ID in config object
      *
-     * @param $store
+     * @param int $storeId
      *
      * @return $this
      */
-    public function setStore($store): static
+    public function setStore($storeId): static
     {
-        $this->setData('store', $store);
+        $store = null;
+        if ($storeId === null) {
+            $store = $this->_storeManager->getDefaultStoreView();
+        }
 
-        $this->_config->setStoreId(is_object($store) ? $store->getId() : $store);
+        $storeId = ($store && is_object($store)) ? $store->getId() : $storeId;
+
+        $this->setData('store', (int)$storeId);
+
+        $this->_config->setStoreId((int)$storeId);
 
         return $this;
     }
@@ -360,11 +367,14 @@ class Dpo extends AbstractMethod
         $data['payment_postcode']   = $billing->getPostcode();
 
         $tokens = $dpo->createToken($data);
-        if ($tokens['success'] === true) {
+
+        if ($tokens['success'] === false) {
+            return $tokens;
+        } elseif ($tokens['success'] === true) {
             $transToken = $data['transToken'] = $tokens['transToken'];
             $verify     = $dpo->verifyToken($data);
 
-            if ( ! empty($verify) && $verify != '') {
+            if (! empty($verify) && $verify != '') {
                 try {
                     $verify = new SimpleXMLElement($verify);
                 } catch (Exception $e) {
@@ -552,5 +562,4 @@ class Dpo extends AbstractMethod
 
         return $serviceType;
     }
-
 }

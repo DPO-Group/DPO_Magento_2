@@ -1,10 +1,11 @@
 <?php
+
 /** @noinspection PhpUnused */
 
 /** @noinspection PhpUndefinedNamespaceInspection */
 
 /*
- * Copyright (c) 2022 DPO Group
+ * Copyright (c) 2023 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -39,7 +40,7 @@ class Index extends AbstractDpo
         $this->dpo_data = $this->getPostData();
 
 
-        if ( ! empty($this->dpo_data) && $this->securitySignatureIsValid()) {
+        if (! empty($this->dpo_data) && $this->securitySignatureIsValid()) {
             $this->updateOrderAdditionalPaymentInfo();
         }
     }
@@ -153,14 +154,16 @@ class Index extends AbstractDpo
             $this->_order->setStatus(Order::STATE_CANCELED);
             $this->_order->save();
             $this->_order->addStatusHistoryComment(
-                "Notify Response, The User Failed to make Payment with Dpo due to transaction being declined, TransactionID: " . $this->dpo_data['TRANSACTION_ID'],
+                "Notify Response, The User Failed to make Payment with Dpo due to transaction being declined,
+                 TransactionID: " . $this->dpo_data['TRANSACTION_ID'],
                 Order::STATE_PROCESSING
             )->setIsCustomerNotified(false)->save();
         } elseif ($status == 0 || $status == 4) {
             $this->_order->setStatus(Order::STATE_CANCELED);
             $this->_order->save();
             $this->_order->addStatusHistoryComment(
-                "Notify Response, The User Cancelled Payment with Dpo, PayRequestID: " . $this->dpo_data['PAY_REQUEST_ID'],
+                "Notify Response, The User Cancelled Payment with Dpo, PayRequestID: "
+                . $this->dpo_data['PAY_REQUEST_ID'],
                 Order::STATE_CANCELED
             )->setIsCustomerNotified(false)->save();
         }

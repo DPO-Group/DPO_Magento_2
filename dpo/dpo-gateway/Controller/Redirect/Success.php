@@ -1,4 +1,5 @@
 <?php
+
 /** @noinspection PhpUnused */
 
 /** @noinspection PhpUnusedParameterInspection */
@@ -10,7 +11,7 @@
 /** @noinspection PhpUndefinedMethodInspection */
 
 /*
- * Copyright (c) 2022 DPO Group
+ * Copyright (c) 2023 DPO Group
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -152,7 +153,8 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
         $this->dataFactory          = $dataFactory;
         $this->_transactionBuilder  = $_transactionBuilder;
         $this->baseurl              = $storeManager->getStore()->getBaseUrl();
-        $this->redirectToCartScript = '<script>window.top.location.href="' . $this->baseurl . 'checkout/cart/";</script>';
+        $this->redirectToCartScript = '<script>window.top.location.href="'
+            . $this->baseurl . 'checkout/cart/";</script>';
 
         parent::__construct(
             $context,
@@ -212,9 +214,13 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
                 $transToken = $Requestdata['TransactionToken'];
                 $reference  = $Requestdata['CompanyRef'];
                 $testText   = substr($reference, -6);
-
                 $status = $this->getStatus($transToken, $testText);
 
+                // Decline the transaction if the reference and order ID are not the same
+                // (i.e. this prevents possible fraud trans.)
+                if (explode("_", $reference)[0] !== $this->_order->getRealOrderId()) {
+                    $status = 2;
+                }
 
                 switch ($status) {
                     case 1:
@@ -265,8 +271,8 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
                         $this->messageManager->addNotice('Transaction has been declined.');
                         $this->_order->addStatusHistoryComment(
                             __(
-                                'Redirect Response, Transaction has been declined, Reference: ' . $lastRealOrder->getIncrementId(
-                                )
+                                'Redirect Response, Transaction has been declined, Reference: '
+                                . $lastRealOrder->getIncrementId()
                             )
                         )->setIsCustomerNotified(false);
                         $this->cancelOrder();
@@ -277,7 +283,8 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
                         $this->messageManager->addNotice('Transaction has been cancelled');
                         $this->_order->addStatusHistoryComment(
                             __(
-                                'Redirect Response, Transaction has been cancelled, Reference: ' . $lastRealOrder->getIncrementId(
+                                'Redirect Response, Transaction has been cancelled, Reference: '
+                                . $lastRealOrder->getIncrementId(
                                 )
                             )
                         )->setIsCustomerNotified(false);
@@ -318,7 +325,7 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
         try {
             // Get payment object from order object
             $payment = $order->getPayment();
-            if ( ! $payment) {
+            if (! $payment) {
                 return false;
             }
             $payment->setLastTransId($paymentData['txn_id'])
