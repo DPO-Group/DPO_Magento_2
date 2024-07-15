@@ -1,0 +1,23 @@
+<?php
+
+/*
+ * Copyright (c) 2024 DPO Group
+ *
+ * Author: App Inlet (Pty) Ltd
+ *
+ * Released under the GNU General Public License
+ */
+
+?>
+<div class="rk button">
+    <form action="<?=
+    $block->getGateUrl(); ?>" method="POST">
+        <?php
+        foreach ($block->getPostData() as $key => $value): ?>
+            <input type="hidden" name="<?= $block->escapeHtml($key); ?>"
+                   value="<?= $block->escapeHtml($value); ?>"></input>
+        <?php
+        endforeach; ?>
+        <button type="submit">Pay</button>
+    </form>
+</div>

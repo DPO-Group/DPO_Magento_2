@@ -1,0 +1,20 @@
+<?php
+
+/*
+ * Copyright (c) 2024 DPO Group
+ *
+ * Author: App Inlet (Pty) Ltd
+ *
+ * Released under the GNU General Public License
+ */
+$formData = $block->getFormData();
+?>
+<h2><?= $block->escapeHtml($block->getMessage()); ?></h2>
+
+<form name="<?= $block->escapeHtml($block->getName()); ?>"
+      id="<?= $block->escapeHtml($block->getId()); ?>"
+      action="<?= $block->escapeHtml($formData["payUrl"]); ?>"
+      method="get">
+    <input type="hidden" name="ID" value="<?= $block->escapeHtml($formData["ID"]); ?>">
+</form>
+<script>document.getElementById('dpo_checkout').submit()</script>

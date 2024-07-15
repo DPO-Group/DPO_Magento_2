@@ -1,5 +1,5 @@
 # DPO_Magento_2
-## DPO Pay Magento 2 plugin v1.1.5 for Magento v2.4.6
+## DPO Pay Magento 2 plugin v1.2.0 for Magento v2.4.6
 
 This is the DPO Group plugin for Magento 2. Please feel free to contact the [DPO Group support team](https://dpogroup.com/contact-us/) should you require any assistance.
 
@@ -11,7 +11,7 @@ You can install this module using composer:
 composer require dpo/dpo-gateway
 ```
 
-Alternatively, please navigate to the [releases page](https://github.com/DPO-Group/DPO_Magento_2/releases), download the latest release (v1.1.5) and unzip. You will then be able to follow the integration guide which is included in the zip.
+Alternatively, please navigate to the [releases page](https://github.com/DPO-Group/DPO_Magento_2/releases), download the latest release (v1.2.0) and unzip. You will then be able to follow the integration guide which is included in the zip.
 
 ## Collaboration
 
