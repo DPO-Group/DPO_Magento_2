@@ -10,13 +10,12 @@
 
 namespace Dpo\Dpo\Model;
 
-use Dpo\Dpo\Helper\Data as DpoHelper;
 use JetBrains\PhpStorm\ArrayShape;
 use Magento\Checkout\Model\ConfigProviderInterface;
 use Magento\Customer\Helper\Session\CurrentCustomer;
 use Magento\Framework\Locale\ResolverInterface;
 use Magento\Payment\Helper\Data as PaymentHelper;
-use Magento\Payment\Model\Method\AbstractMethod;
+use Magento\Payment\Model\MethodInterface;
 use Psr\Log\LoggerInterface;
 
 class DpoConfigProvider implements ConfigProviderInterface
@@ -25,50 +24,44 @@ class DpoConfigProvider implements ConfigProviderInterface
      * @var ResolverInterface
      */
     protected ResolverInterface $localeResolver;
-
     /**
      * @var Config
      */
     protected Config $config;
-
     /**
      * @var CurrentCustomer
      */
     protected CurrentCustomer $currentCustomer;
-
     /**
      * @var LoggerInterface
      */
     protected LoggerInterface $logger;
-
-    /**
-     * @var DpoHelper
-     */
-    protected DpoHelper $dpoHelper;
-
     /**
      * @var string[]
      */
     protected array $methodCodes = [
         Config::METHOD_CODE,
     ];
-
     /**
-     * @var AbstractMethod[]
+     * @var MethodInterface[]
      */
     protected array $methods = [];
-
     /**
-     * @var DpoHelper|PaymentHelper
+     * @var PaymentHelper
      */
-    protected PaymentHelper|DpoHelper $paymentHelper;
+    protected PaymentHelper $paymentHelper;
+    /**
+     * Cache for shouldAskToCreateBillingAgreement()
+     *
+     * @var bool
+     */
+    protected static bool $shouldAskToCreateBillingAgreement = false;
 
     /**
      * @param LoggerInterface $logger
      * @param ConfigFactory $configFactory
      * @param ResolverInterface $localeResolver
      * @param CurrentCustomer $currentCustomer
-     * @param DpoHelper $dpoHelper
      * @param PaymentHelper $paymentHelper
      */
     public function __construct(
@@ -76,7 +69,6 @@ class DpoConfigProvider implements ConfigProviderInterface
         ConfigFactory $configFactory,
         ResolverInterface $localeResolver,
         CurrentCustomer $currentCustomer,
-        DpoHelper $dpoHelper,
         PaymentHelper $paymentHelper
     ) {
         $this->logger = $logger;
@@ -86,7 +78,6 @@ class DpoConfigProvider implements ConfigProviderInterface
         $this->localeResolver  = $localeResolver;
         $this->config          = $configFactory->create();
         $this->currentCustomer = $currentCustomer;
-        $this->dpoHelper       = $dpoHelper;
         $this->paymentHelper   = $paymentHelper;
 
         foreach ($this->methodCodes as $code) {
@@ -161,6 +152,20 @@ class DpoConfigProvider implements ConfigProviderInterface
         $this->logger->debug($pre . 'eof');
 
         // Always return null
-        return $this->dpoHelper->shouldAskToCreateBillingAgreement();
+        return $this->shouldAskToCreateBillingAgreement();
+    }
+
+    /**
+     * Check whether customer should be asked confirmation whether to sign a billing agreement. Returns false.
+     *
+     * @return bool
+     */
+    public function shouldAskToCreateBillingAgreement(): bool
+    {
+        $pre = __METHOD__ . " : ";
+        $this->logger->debug($pre . "bof");
+        $this->logger->debug($pre . "eof");
+
+        return self::$shouldAskToCreateBillingAgreement;
     }
 }

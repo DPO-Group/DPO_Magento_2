@@ -10,13 +10,12 @@
 
 namespace Dpo\Dpo\Block;
 
-use Dpo\Dpo\Helper\Data;
 use Dpo\Dpo\Model\Config;
-use Dpo\Dpo\Model\ConfigFactory;
 use Dpo\Dpo\Model\Dpo;
 use Magento\Customer\Helper\Session\CurrentCustomer;
 use Magento\Framework\Locale\ResolverInterface;
 use Magento\Framework\View\Element\Template\Context;
+use Psr\Log\LoggerInterface;
 
 class Form extends \Magento\Payment\Block\Form
 {
@@ -26,29 +25,9 @@ class Form extends \Magento\Payment\Block\Form
     protected string|Dpo $methodCode = Config::METHOD_CODE;
 
     /**
-     * @var Data
-     */
-    protected Data $dpoData;
-
-    /**
-     * @var ConfigFactory
-     */
-    protected ConfigFactory $dpoConfigFactory;
-
-    /**
      * @var ResolverInterface
      */
     protected ResolverInterface $localeResolver;
-
-    /**
-     * @var Config|null
-     */
-    protected ?Config $config;
-
-    /**
-     * @var bool
-     */
-    protected $_isScopePrivate;
 
     /**
      * @var CurrentCustomer
@@ -58,35 +37,29 @@ class Form extends \Magento\Payment\Block\Form
     /**
      * @var LoggerInterface
      */
-    protected $_logger;
+    protected LoggerInterface $logger;
 
     /**
      * @param Context $context
-     * @param ConfigFactory $dpoConfigFactory
      * @param ResolverInterface $localeResolver
-     * @param Data $dpoData
      * @param CurrentCustomer $currentCustomer
+     * @param LoggerInterface $logger
      * @param array $data
      */
     public function __construct(
         Context $context,
-        ConfigFactory $dpoConfigFactory,
         ResolverInterface $localeResolver,
-        Data $dpoData,
         CurrentCustomer $currentCustomer,
+        LoggerInterface $logger,
         array $data = []
     ) {
-        $this->_logger = $context->getLogger();
-        $pre           = __METHOD__ . " : ";
-        $this->_logger->debug($pre . 'bof');
-        $this->dpoData          = $dpoData;
-        $this->dpoConfigFactory = $dpoConfigFactory;
-        $this->localeResolver   = $localeResolver;
-        $this->config           = null;
-        $this->_isScopePrivate  = true;
-        $this->currentCustomer  = $currentCustomer;
+        $this->logger = $logger;
+        $pre          = __METHOD__ . " : ";
+        $this->logger->debug($pre . 'bof');
+        $this->localeResolver  = $localeResolver;
+        $this->currentCustomer = $currentCustomer;
         parent::__construct($context, $data);
-        $this->_logger->debug($pre . "eof");
+        $this->logger->debug($pre . "eof");
     }
 
     /**
@@ -97,7 +70,7 @@ class Form extends \Magento\Payment\Block\Form
     public function getMethodCode(): Dpo|string
     {
         $pre = __METHOD__ . " : ";
-        $this->_logger->debug($pre . 'bof');
+        $this->logger->debug($pre . 'bof');
 
         return $this->methodCode;
     }
@@ -110,8 +83,7 @@ class Form extends \Magento\Payment\Block\Form
     protected function _construct()
     {
         $pre = __METHOD__ . " : ";
-        $this->_logger->debug($pre . 'bof');
-        $this->config = $this->dpoConfigFactory->create()->setMethod($this->getMethodCode());
+        $this->logger->debug($pre . 'bof');
         parent::_construct();
 
         return null;
