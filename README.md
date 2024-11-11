@@ -17,7 +17,7 @@ composer require dpo/dpo-gateway
 
 ### Option 2 - Manual Installation
 
-Navigate to the [releases page](https://github.com/DPO-Group/DPO_Magento_2/releases) and download the latest release.
+Navigate to the [releases page](https://github.com/DPO-Group/DPO_Magento_2/releases) and download [Dpo.zip](https://github.com/DPO-Group/DPO_Magento_2/releases/download/1.3.0/Dpo.zip).
 Extract the contents of the mentioned zip file, then upload the newly created **Dpo** directory into your Magento
 app/code directory (e.g. magentorootfolder/app/code/).
 
