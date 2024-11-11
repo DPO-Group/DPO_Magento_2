@@ -11,13 +11,18 @@
 
 namespace Dpo\Dpo\Controller\Notify;
 
-use Dpo\Dpo\Controller\AbstractDpo;
+use Exception;
 use Magento\Framework\DB\Transaction;
+use Magento\Framework\DB\TransactionFactory;
 use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\ObjectManagerInterface;
 use Magento\Sales\Model\Order;
 use Magento\Framework\Controller\ResultFactory;
+use Magento\Sales\Model\OrderFactory;
+use Dpo\Dpo\Service\CheckoutProcessor;
+use Magento\Sales\Api\OrderRepositoryInterface;
 
-class Index extends AbstractDpo
+class Index
 {
     /**
      * Store id as an interger
@@ -31,6 +36,62 @@ class Index extends AbstractDpo
      * @var array|false
      */
     private array|false $dpoData;
+    /**
+     * @var TransactionFactory
+     */
+    protected TransactionFactory $transactionFactory;
+    /**
+     * @var  Order $order
+     */
+    protected Order $order;
+    /**
+     * @var OrderFactory
+     */
+    protected OrderFactory $orderFactory;
+    /**
+     * @var ResultFactory
+     */
+    private ResultFactory $resultFactory;
+    /**
+     * @var ObjectManagerInterface
+     */
+    protected ObjectManagerInterface $objectManager;
+    /**
+     * @var CheckoutProcessor
+     */
+    private CheckoutProcessor $checkoutProcessor;
+    /**
+     * @var OrderRepositoryInterface
+     */
+    private OrderRepositoryInterface $orderRepository;
+
+    /**
+     * @param TransactionFactory $transactionFactory
+     * @param Order $order
+     * @param OrderFactory $orderFactory
+     * @param ResultFactory $resultFactory
+     * @param ObjectManagerInterface $objectManager
+     * @param CheckoutProcessor $checkoutProcessor
+     * @param OrderRepositoryInterface $orderRepository
+     */
+    public function __construct(
+        TransactionFactory $transactionFactory,
+        Order $order,
+        OrderFactory $orderFactory,
+        ResultFactory $resultFactory,
+        ObjectManagerInterface $objectManager,
+        CheckoutProcessor $checkoutProcessor,
+        OrderRepositoryInterface $orderRepository
+    ) {
+        $this->transactionFactory = $transactionFactory;
+        $this->order              = $order;
+        $this->orderFactory       = $orderFactory;
+        $this->resultFactory      = $resultFactory;
+        $this->objectManager      = $objectManager;
+        $this->checkoutProcessor  = $checkoutProcessor;
+        $this->orderRepository    = $orderRepository;
+    }
+
 
     /**
      * Executes the class methods
@@ -110,9 +171,11 @@ class Index extends AbstractDpo
                     ->addObject($invoice->getOrder())
                     ->save();
 
-        $this->order->addStatusHistoryComment(__('Notified customer about invoice #%1.', $invoice->getIncrementId()));
-        $this->order->setIsCustomerNotified(true);
-        $this->order->save();
+        $this->order->addCommentToStatusHistory(
+            __('Notified customer about invoice #%1.', $invoice->getIncrementId())
+        )->setIsCustomerNotified(true);
+
+        $this->orderRepository->save($this->order);
     }
 
     /**
@@ -139,10 +202,10 @@ class Index extends AbstractDpo
                 return false;
             }
         }
-        if ($this->getConfigData('test_mode') != '0') {
+        if ($this->checkoutProcessor->getConfigData('test_mode') != '0') {
             $service_type = 'secret';
         } else {
-            $service_type = $this->getConfigData('service_type');
+            $service_type = $this->checkoutProcessor->getConfigData('service_type');
         }
         $checkSumParams .= $service_type;
         //@codingStandardsIgnoreStart
@@ -159,7 +222,7 @@ class Index extends AbstractDpo
      * Updates the order with additional payment info
      *
      * @return void
-     * @throws \Exception
+     * @throws Exception
      */
     private function updateOrderAdditionalPaymentInfo()
     {
@@ -171,27 +234,39 @@ class Index extends AbstractDpo
 
         if ($status == 1) {
             $this->order->setStatus(Order::STATE_PROCESSING);
-            $this->order->save();
-            $this->order->addStatusHistoryComment(
+            $this->orderRepository->save($this->order);
+
+            $history = $this->order->addCommentToStatusHistory(
                 "Notify Response, Transaction has been approved, TransactionID: " . $this->dpoData['TRANSACTION_ID'],
                 Order::STATE_PROCESSING
-            )->setIsCustomerNotified(false)->save();
+            );
+
+            $history->setIsCustomerNotified(false);
+            $this->orderRepository->save($this->order);
         } elseif ($status == 2) {
             $this->order->setStatus(Order::STATE_CANCELED);
-            $this->order->save();
-            $this->order->addStatusHistoryComment(
+            $this->orderRepository->save($this->order);
+
+            $history = $this->order->addCommentToStatusHistory(
                 "Notify Response, The User Failed to make Payment with Dpo due to transaction being declined,
                  TransactionID: " . $this->dpoData['TRANSACTION_ID'],
                 Order::STATE_PROCESSING
-            )->setIsCustomerNotified(false)->save();
+            );
+
+            $history->setIsCustomerNotified(false);
+            $this->orderRepository->save($this->order);
         } elseif ($status == 0 || $status == 4) {
             $this->order->setStatus(Order::STATE_CANCELED);
-            $this->order->save();
-            $this->order->addStatusHistoryComment(
+            $this->orderRepository->save($this->order);
+
+            $history = $this->order->addCommentToStatusHistory(
                 "Notify Response, The User Cancelled Payment with Dpo, PayRequestID: "
                 . $this->dpoData['PAY_REQUEST_ID'],
                 Order::STATE_CANCELED
-            )->setIsCustomerNotified(false)->save();
+            );
+
+            $history->setIsCustomerNotified(false);
+            $this->orderRepository->save($this->order);
         }
     }
 
@@ -202,6 +277,6 @@ class Index extends AbstractDpo
      */
     protected function getResultFactory()
     {
-        return $this->resultFactory ?: $this->_objectManager->get(ResultFactory::class);
+        return $this->resultFactory ?: $this->objectManager->get(ResultFactory::class);
     }
 }

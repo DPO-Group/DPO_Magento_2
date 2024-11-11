@@ -12,7 +12,7 @@ namespace Dpo\Dpo\Model;
 use Exception;
 use JetBrains\PhpStorm\ArrayShape;
 use Magento\Framework\Escaper;
-use Magento\Framework\HTTP\Client\Curl;
+use GuzzleHttp\Client;
 
 class Dpopay
 {
@@ -39,18 +39,17 @@ class Dpopay
      */
     private object $logger;
     /**
-     * @var Curl
+     * @var Client
      */
-    protected $curl;
+    protected Client $client;
 
     /**
      * Class construct
      *
      * @param object $logger
-     * @param Curl $curl
      * @param bool $testMode
      */
-    public function __construct($logger, Curl $curl, $testMode = false)
+    public function __construct($logger, Client $client, $testMode = false)
     {
         $this->dpoUrl = self::DPO_URL_LIVE;
 
@@ -64,7 +63,7 @@ class Dpopay
 
         $this->logger     = $logger;
         $this->dpoGateway = $this->dpoUrl . '/payv2.php';
-        $this->curl       = $curl;
+        $this->client     = $client;
     }
 
     /**
@@ -120,10 +119,14 @@ class Dpopay
 POSTXML;
 
         try {
-            $this->curl->setOption(CURLOPT_RETURNTRANSFER, true);
-            $this->curl->addHeader("Content-Type", "application/xml");
-            $this->curl->post($this->dpoUrl . "/API/v6/", $postXml);
-            $response = $this->curl->getBody();
+            $request = $this->client->request('POST', $this->dpoUrl . '/API/v6/', [
+                'headers' => [
+                    'Content-Type' => 'application/xml',
+                ],
+                'body'    => $postXml,
+            ]);
+
+            $response = $request->getBody()->getContents();
 
             if ($response != '') {
                 $xml = simplexml_load_string($response);
@@ -188,10 +191,14 @@ POSTXML;
 POSTXML;
 
         try {
-            $this->curl->setOption(CURLOPT_RETURNTRANSFER, true);
-            $this->curl->addHeader("Content-Type", "application/xml");
-            $this->curl->post($this->dpoUrl . "/API/v7/", $postXml);
-            $response = $this->curl->getBody();
+            $request = $this->client->request('POST', $this->dpoUrl . '/API/v7/', [
+                'headers' => [
+                    'Content-Type' => 'application/xml',
+                ],
+                'body'    => $postXml,
+            ]);
+
+            $response = $request->getBody()->getContents();
 
             if (!$response) {
                 $this->logger->debug("cURL Error");

@@ -10,7 +10,7 @@
 
 namespace Dpo\Dpo\Controller\Redirect;
 
-use Dpo\Dpo\Controller\AbstractDpo;
+use Dpo\Common\Dpo as DpoCommon;
 use Dpo\Dpo\Model\Dpo;
 use Dpo\Dpo\Model\Dpopay;
 use Dpo\Dpo\Model\TransactionDataFactory;
@@ -25,6 +25,7 @@ use Magento\Framework\DB\Transaction as DBTransaction;
 use Magento\Framework\DB\TransactionFactory;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\HTTP\Client\Curl;
+use Magento\Framework\Message\ManagerInterface as MessageManagerInterface;
 use Magento\Framework\Session\Generic;
 use Magento\Framework\Stdlib\DateTime\DateTime;
 use Magento\Framework\Url\Helper\Data;
@@ -48,6 +49,10 @@ use Magento\Store\Model\StoreManagerInterface;
 use Psr\Log\LoggerInterface;
 use SimpleXMLElement;
 use Magento\Framework\Controller\ResultFactory;
+use Magento\Sales\Api\TransactionRepositoryInterface;
+use Magento\Framework\App\Action\HttpGetActionInterface;
+use Magento\Framework\App\Action\HttpPostActionInterface;
+use GuzzleHttp\Client;
 
 /**
  * Responsible for loading page content.
@@ -55,16 +60,16 @@ use Magento\Framework\Controller\ResultFactory;
  * This is a basic controller that only loads the corresponding layout file. It may duplicate other such
  * controllers, and thus it is considered tech debt. This code duplication will be resolved in future releases.
  */
-class Success extends AbstractDpo implements CsrfAwareActionInterface
+class Success implements HttpPostActionInterface, HttpGetActionInterface, CsrfAwareActionInterface
 {
     /**
      * @var PageFactory
      */
-    protected PageFactory $resultPageFactory;
+    protected PageFactory $pageFactory;
     /**
-     * @var object
+     * @var MessageManagerInterface
      */
-    protected $messageManager;
+    protected MessageManagerInterface $messageManager;
     /**
      * @var TransactionDataFactory
      */
@@ -94,9 +99,50 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
      */
     private ScopeConfigInterface $scopeConfigInterface;
     /**
-     * @var Curl
+     * @var Client
      */
-    private Curl $curl;
+    protected Client $client;
+    /**
+     * @var CheckoutSession $checkoutSession
+     */
+    protected CheckoutSession $checkoutSession;
+    /**
+     * @var LoggerInterface
+     */
+    protected LoggerInterface $logger;
+    /**
+     * @var Dpo
+     */
+    protected Dpo $paymentMethod;
+    /**
+     * @var OrderSender
+     */
+    protected OrderSender $orderSender;
+    /**
+     * @var InvoiceService
+     */
+    protected InvoiceService $invoiceService;
+    /**
+     * @var InvoiceSender
+     */
+    protected InvoiceSender $invoiceSender;
+    /**
+     * @var ResultFactory
+     */
+    private ResultFactory $resultFactory;
+    /**
+     * @var RequestInterface
+     */
+    private RequestInterface $request;
+    /**
+     * @var OrderRepositoryInterface
+     */
+    protected OrderRepositoryInterface $orderRepository;
+    /**
+     * @var TransactionRepositoryInterface
+     */
+    protected TransactionRepositoryInterface $transactionRepository;
+
 
     /**
      * Success constructor.
@@ -125,7 +171,12 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
      * @param Order $order
      * @param ScopeConfigInterface $scopeConfigInterface
      * @param FormKey $formKey
-     * @param Curl $curl
+     * @param CheckoutSession $checkoutSession
+     * @param LoggerInterface $logger
+     * @param ResultFactory $resultFactory
+     * @param RequestInterface $request
+     * @param TransactionRepositoryInterface $transactionRepository
+     * @param MessageManagerInterface $messageManager
      */
     public function __construct(
         Context $context,
@@ -152,39 +203,33 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
         Order $order,
         ScopeConfigInterface $scopeConfigInterface,
         FormKey $formKey,
-        Curl $curl
+        Client $client,
+        ResultFactory $resultFactory,
+        RequestInterface $request,
+        TransactionRepositoryInterface $transactionRepository,
+        MessageManagerInterface $messageManager
     ) {
-        $this->scopeConfigInterface = $scopeConfigInterface;
-        $this->order                = $order;
-        $this->dbTransaction        = $dbTransaction;
-        $this->dataFactory          = $dataFactory;
-        $this->transactionBuilder   = $_transactionBuilder;
-        $this->baseurl              = $storeManager->getStore()->getBaseUrl();
-        $this->redirectToCartScript = '<script>window.top.location.href="'
-                                      . $this->baseurl . 'checkout/cart/";</script>';
-        $this->curl                 = $curl;
-
-        parent::__construct(
-            $context,
-            $pageFactory,
-            $customerSession,
-            $checkoutSession,
-            $orderFactory,
-            $dpoSession,
-            $urlHelper,
-            $customerUrl,
-            $logger,
-            $transactionFactory,
-            $invoiceService,
-            $invoiceSender,
-            $paymentMethod,
-            $urlBuilder,
-            $orderRepository,
-            $storeManager,
-            $orderSender,
-            $date,
-            $formKey
-        );
+        $this->scopeConfigInterface  = $scopeConfigInterface;
+        $this->order                 = $order;
+        $this->dbTransaction         = $dbTransaction;
+        $this->dataFactory           = $dataFactory;
+        $this->transactionBuilder    = $_transactionBuilder;
+        $this->baseurl               = $storeManager->getStore()->getBaseUrl();
+        $this->redirectToCartScript  = '<script>window.top.location.href="'
+                                       . $this->baseurl . 'checkout/cart/";</script>';
+        $this->client                = $client;
+        $this->checkoutSession       = $checkoutSession;
+        $this->logger                = $logger;
+        $this->pageFactory           = $pageFactory;
+        $this->paymentMethod         = $paymentMethod;
+        $this->orderSender           = $orderSender;
+        $this->invoiceService        = $invoiceService;
+        $this->invoiceSender         = $invoiceSender;
+        $this->resultFactory         = $resultFactory;
+        $this->request               = $request;
+        $this->orderRepository       = $orderRepository;
+        $this->transactionRepository = $transactionRepository;
+        $this->messageManager        = $messageManager;
     }
 
     /**
@@ -227,10 +272,11 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
      */
     public function execute(): ResultInterface
     {
-        $lastRealOrder = $this->checkoutSession->getLastRealOrder();
-        $request       = $this->getRequest();
-        $requestData   = $request->getParams();
-        $pre           = __METHOD__ . " : ";
+        $lastRealOrder         = $this->checkoutSession->getLastRealOrder();
+        $requestData           = $this->request->getParams();
+        $pre                   = __METHOD__ . " : ";
+        $cartPath              = 'checkout/cart/';
+        $resultRedirectFactory = $this->resultFactory->create(ResultFactory::TYPE_REDIRECT);
         $this->logger->debug($pre . 'bof');
         $this->pageFactory->create();
         $this->dataFactory->create();
@@ -244,8 +290,7 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
             if (isset($requestData['TransactionToken'])) {
                 $transToken = $requestData['TransactionToken'];
                 $reference  = $requestData['CompanyRef'];
-                $testText   = substr($reference, -6);
-                $status     = $this->getStatus($transToken, $testText);
+                $status     = $this->getStatus($transToken);
 
                 // Decline the transaction if the reference and order ID are not the same
                 // (i.e. this prevents possible fraud trans.)
@@ -259,8 +304,9 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
                         $status = Order::STATE_PROCESSING;
 
                         $this->order->setStatus($status); // configure the status
-                        $this->order->setState($status)->save(); // try and configure the status
-                        $this->order->save();
+                        $this->order->setState($status);  // set the state
+                        $this->orderRepository->save($this->order); // save the order via the repository
+
                         $lastRealOrder = $this->order;
 
                         $model                  = $this->paymentMethod;
@@ -268,9 +314,12 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
 
                         if ($order_successful_email != '0') {
                             $this->orderSender->send($lastRealOrder);
-                            $lastRealOrder->addStatusHistoryComment(
+                            $history = $lastRealOrder->addCommentToStatusHistory(
                                 __('Notified customer about order #%1.', $lastRealOrder->getId())
-                            )->setIsCustomerNotified(true)->save();
+                            );
+
+                            $history->setIsCustomerNotified(true);
+                            $this->orderRepository->save($lastRealOrder);
                         }
 
                         // Capture invoice when payment is successful
@@ -290,9 +339,12 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
 
                         if ($send_invoice_email != '0') {
                             $this->invoiceSender->send($invoice);
-                            $lastRealOrder->addStatusHistoryComment(
+                            $history = $lastRealOrder->addCommentToStatusHistory(
                                 __('Notified customer about invoice #%1.', $invoice->getId())
-                            )->setIsCustomerNotified(true)->save();
+                            );
+
+                            $history->setIsCustomerNotified(true);
+                            $this->orderRepository->save($lastRealOrder);
                         }
 
                         // Invoice capture code completed
@@ -303,27 +355,34 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
 
                     case 2:
                         $this->prepareTransactionData($lastRealOrder, $requestData, 'declined');
-                        $this->messageManager->addNotice('Transaction has been declined.');
-                        $this->order->addStatusHistoryComment(
+                        $this->checkoutSession->restoreQuote();
+                        $this->order->cancel();
+                        $this->orderRepository->save($this->order);
+                        $this->messageManager->addNoticeMessage(__('Transaction has been declined.'));
+
+                        $this->order->addCommentToStatusHistory(
                             __(
                                 'Redirect Response, Transaction has been declined, Reference: '
                                 . $lastRealOrder->getIncrementId()
                             )
                         )->setIsCustomerNotified(false);
-                        $this->cancelOrder();
+                        $result = $resultRedirectFactory->setPath($cartPath);
                         break;
 
                     case 0:
                     case 4:
                         $this->prepareTransactionData($lastRealOrder, $requestData, 'cancelled');
-                        $this->messageManager->addNotice('Transaction has been cancelled');
-                        $this->order->addStatusHistoryComment(
+                        $this->checkoutSession->restoreQuote();
+                        $this->order->cancel();
+                        $this->orderRepository->save($this->order);
+                        $this->messageManager->addNoticeMessage(__('Transaction has been cancelled'));
+                        $this->order->addCommentToStatusHistory(
                             __(
                                 'Redirect Response, Transaction has been cancelled, Reference: '
                                 . $lastRealOrder->getIncrementId()
                             )
                         )->setIsCustomerNotified(false);
-                        $this->cancelOrder();
+                        $result = $resultRedirectFactory->setPath($cartPath);
                         break;
 
                     default:
@@ -380,7 +439,6 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
      */
     public function createTransaction($order, $paymentData = []): bool
     {
-        $response = false;
         try {
             // Get payment object from order object
             $payment = $order->getPayment();
@@ -420,12 +478,15 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
             $payment->save();
             $order->save();
 
-            $response = $transaction->save()->getTransactionId();
+            // Use the repository to save the transaction
+            $this->transactionRepository->save($transaction);
+
+            return $transaction->getTransactionId();
         } catch (Exception $e) {
             $this->logger->debug($e->getMessage());
         }
 
-        return $response;
+        return false;
     }
 
     /**
@@ -460,7 +521,9 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
      */
     public function cancelOrder(): ResultInterface
     {
-        $this->order->cancel()->save();
+        $order = $this->order->cancel();
+        // Save the order using the repository
+        $this->orderRepository->save($order);
         $this->checkoutSession->restoreQuote();
         $result = $this->resultFactory->create(ResultFactory::TYPE_RAW);
         $result->setContents($this->redirectToCartScript);
@@ -476,13 +539,13 @@ class Success extends AbstractDpo implements CsrfAwareActionInterface
      *
      * @return int
      */
-    private function getStatus($transToken, $testText): int
+    private function getStatus($transToken): int
     {
-        $dpo                  = new Dpopay($this->logger, $this->curl, $testText === 'teston');
+        $dpoCommon            = new DpoCommon(true);
         $data                 = [];
         $data['transToken']   = $transToken;
         $data['companyToken'] = $this->getPaymentConfig('company_token');
-        $verify               = $dpo->verifyToken($data);
+        $verify               = $dpoCommon->verifyToken($data);
 
         if ($verify != '') {
             try {

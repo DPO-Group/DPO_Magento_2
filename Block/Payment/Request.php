@@ -67,10 +67,9 @@ class Request extends Template
         $this->orderFactory    = $orderFactory;
         $this->checkoutSession = $checkoutSession;
         parent::__construct($context, $data);
-        $this->_isScopePrivate = true;
-        $this->readFactory     = $readFactory;
-        $this->reader          = $reader;
-        $this->paymentMethod   = $paymentMethod;
+        $this->readFactory   = $readFactory;
+        $this->reader        = $reader;
+        $this->paymentMethod = $paymentMethod;
     }
 
     /**

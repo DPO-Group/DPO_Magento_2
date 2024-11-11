@@ -10,24 +10,18 @@
 
 namespace Dpo\Dpo\Model;
 
-use Dpo\Dpo\Model\ConfigFactory;
+use Dpo\Dpo\Model\TransactionDataRepository;
 use Exception;
+use GuzzleHttp\Client;
 use JetBrains\PhpStorm\Pure;
 use Magento\Checkout\Model\Session;
-use Magento\Framework\Api\AttributeValueFactory;
-use Magento\Framework\Api\ExtensionAttributesFactory;
 use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Framework\Data\Collection\AbstractDb;
 use Magento\Framework\Data\Form\FormKey;
+use Magento\Framework\DataObject;
 use Magento\Framework\Exception\LocalizedExceptionFactory;
 use Magento\Framework\HTTP\Client\Curl;
-use Magento\Framework\Model\Context;
-use Magento\Framework\Model\ResourceModel\AbstractResource;
-use Magento\Framework\Registry;
 use Magento\Framework\UrlInterface;
-use Magento\Payment\Helper\Data;
-use Magento\Payment\Model\Method\AbstractMethod;
-use Magento\Payment\Model\Method\Logger;
+use Magento\Payment\Model\InfoInterface;
 use Magento\Quote\Api\Data\CartInterface;
 use Magento\Quote\Model\Quote;
 use Magento\Sales\Api\Data\OrderPaymentInterface;
@@ -35,16 +29,26 @@ use Magento\Sales\Api\Data\TransactionInterface;
 use Magento\Sales\Api\TransactionRepositoryInterface;
 use Magento\Sales\Model\Order;
 use Magento\Sales\Model\Order\Payment;
+use Magento\Sales\Model\Order\Payment as OrderPayment;
 use Magento\Sales\Model\Order\Payment\Transaction;
 use Magento\Sales\Model\Order\Payment\Transaction\BuilderInterface;
 use Magento\Store\Model\ScopeInterface;
 use Magento\Store\Model\Store;
 use Magento\Store\Model\StoreManagerInterface;
+use Psr\Log\LoggerInterface;
 use SimpleXMLElement;
 use Dpo\Dpo\Block\Form;
 use Dpo\Dpo\Block\Payment\Info;
+use Dpo\Common\Dpo as DpoCommon;
+use Magento\Payment\Model\MethodInterface;
+use Magento\Directory\Helper\Data as DirectoryHelper;
+use Magento\Payment\Observer\AbstractDataAssignObserver;
+use Magento\Framework\Event\ManagerInterface;
+use GuzzleHttp\Exception\RequestException;
+use Magento\Quote\Model\Quote\Payment as QuotePayment;
+use Magento\Sales\Api\OrderAddressRepositoryInterface;
 
-class Dpo extends AbstractMethod
+class Dpo implements MethodInterface
 {
     private const SECURE = ['_secure' => true];
     /**
@@ -52,9 +56,9 @@ class Dpo extends AbstractMethod
      */
     protected $dataFactory;
     /**
-     * @var Magento\Framework\App\Config\ScopeConfigInterface|ScopeConfigInterface $_scopeConfig
+     * @var Magento\Framework\App\Config\ScopeConfigInterface|ScopeConfigInterface $scopeConfig
      */
-    protected $_scopeConfig;
+    protected $scopeConfig;
     /**
      * @var string
      */
@@ -71,66 +75,7 @@ class Dpo extends AbstractMethod
      * @var string
      */
     protected $configType = Config::class;
-    /**
-     * Payment Method feature
-     *
-     * @var bool
-     */
-    protected $_isInitializeNeeded = true;
-    /**
-     * Availability option
-     *
-     * @var bool
-     */
-    protected $_isGateway = false;
-    /**
-     * Availability option
-     *
-     * @var bool
-     */
-    protected $_canOrder = true;
-    /**
-     * Availability option
-     *
-     * @var bool
-     */
-    protected $_canAuthorize = true;
-    /**
-     * Availability option
-     *
-     * @var bool
-     */
-    protected $_canCapture = true;
-    /**
-     * Availability option
-     *
-     * @var bool
-     */
-    protected $_canVoid = false;
-    /**
-     * Availability option
-     *
-     * @var bool
-     */
-    protected $_canUseInternal = true;
-    /**
-     * Availability option
-     *
-     * @var bool
-     */
-    protected $_canUseCheckout = true;
-    /**
-     * Availability option
-     *
-     * @var bool
-     */
-    protected $_canFetchTransactionInfo = true;
-    /**
-     * Availability option
-     *
-     * @var bool
-     */
-    protected $_canReviewPayment = true;
+
     /**
      * Website Payments Pro instance
      *
@@ -164,7 +109,7 @@ class Dpo extends AbstractMethod
     /**
      * @var Session
      */
-    protected $checkoutSession;
+    protected Session $checkoutSession;
     /**
      * @var LocalizedExceptionFactory
      */
@@ -178,40 +123,38 @@ class Dpo extends AbstractMethod
      */
     protected BuilderInterface $transactionBuilder;
     /**
-     * @var Curl
+     * @var Client
      */
-    private Curl $curl;
-
+    protected Client $client;
     /**
-     * @param Context $context
-     * @param Registry $registry
-     * @param ExtensionAttributesFactory $extensionFactory
-     * @param AttributeValueFactory $customAttributeFactory
-     * @param Data $paymentData
-     * @param ScopeConfigInterface $scopeConfig
-     * @param Logger $logger
-     * @param ConfigFactory $configFactory
-     * @param StoreManagerInterface $storeManager
-     * @param UrlInterface $urlBuilder
-     * @param FormKey $formKey
-     * @param Session $checkoutSession
-     * @param LocalizedExceptionFactory $exception
-     * @param TransactionRepositoryInterface $transactionRepository
-     * @param Transaction\BuilderInterface $transactionBuilder
-     * @param TransactionDataFactory $dataFactory
-     * @param Curl $curl
-     * @param AbstractResource|null $resource
-     * @param AbstractDb|null $resourceCollection
-     * @param array $data
+     * @var LoggerInterface
      */
+    private LoggerInterface $logger;
+    /**
+     * @var string
+     */
+    private $formBlockType = Form::class;
+    /**
+     * @var string
+     */
+    private $infoBlockType = Info::class;
+    /**
+     * @var ManagerInterface
+     */
+    private ManagerInterface $eventManager;
+    private InfoInterface $infoInstance;
+    private DirectoryHelper $directoryHelper;
+    /**
+     * @var TransactionDataRepository
+     */
+    private TransactionDataRepository $transactionDataRepository;
+    /**
+     * @var OrderAddressRepositoryInterface
+     */
+    private OrderAddressRepositoryInterface $orderAddressRepository;
+
     public function __construct(
-        Context $context,
-        Registry $registry,
-        ExtensionAttributesFactory $extensionFactory,
-        AttributeValueFactory $customAttributeFactory,
-        Data $paymentData,
         ScopeConfigInterface $scopeConfig,
-        Logger $logger,
         ConfigFactory $configFactory,
         StoreManagerInterface $storeManager,
         UrlInterface $urlBuilder,
@@ -221,23 +164,13 @@ class Dpo extends AbstractMethod
         TransactionRepositoryInterface $transactionRepository,
         BuilderInterface $transactionBuilder,
         TransactionDataFactory $dataFactory,
-        Curl $curl,
-        AbstractResource $resource = null,
-        AbstractDb $resourceCollection = null,
-        array $data = []
+        LoggerInterface $logger,
+        DirectoryHelper $directoryHelper,
+        ManagerInterface $eventManager,
+        TransactionDataRepository $transactionDataRepository,
+        Client $client,
+        OrderAddressRepositoryInterface $orderAddressRepository
     ) {
-        parent::__construct(
-            $context,
-            $registry,
-            $extensionFactory,
-            $customAttributeFactory,
-            $paymentData,
-            $scopeConfig,
-            $logger,
-            $resource,
-            $resourceCollection,
-            $data
-        );
         $this->storeManager          = $storeManager;
         $this->urlBuilder            = $urlBuilder;
         $this->formKey               = $formKey;
@@ -245,33 +178,33 @@ class Dpo extends AbstractMethod
         $this->exception             = $exception;
         $this->transactionRepository = $transactionRepository;
         $this->transactionBuilder    = $transactionBuilder;
-        $this->_scopeConfig          = $scopeConfig;
+        $this->scopeConfig           = $scopeConfig;
         $parameters                  = ['params' => [$this->_code]];
 
-        $this->config      = $configFactory->create($parameters);
-        $this->dataFactory = $dataFactory;
-        $this->curl        = $curl;
+        $this->config                    = $configFactory->create($parameters);
+        $this->dataFactory               = $dataFactory;
+        $this->client                    = $client;
+        $this->logger                    = $logger;
+        $this->directoryHelper           = $directoryHelper;
+        $this->eventManager              = $eventManager;
+        $this->transactionDataRepository = $transactionDataRepository;
+        $this->orderAddressRepository    = $orderAddressRepository;
     }
 
     /**
-     * Store setter and updates store ID in config object
+     * Store setter; also updates store ID in config object
      *
-     * @param int $storeId
+     * @param Store|int $store
      *
      * @return $this
+     * @throws NoSuchEntityException
      */
-    public function setStore($storeId): static
+    public function setStore($store)
     {
-        $store = null;
-        if ($storeId === null) {
-            $store = $this->storeManager->getDefaultStoreView();
+        if (null === $store) {
+            $store = $this->storeManager->getStore()->getId();
         }
-
-        $storeId = ($store && is_object($store)) ? $store->getId() : $storeId;
-
-        $this->setData('store', (int)$storeId);
-
-        $this->config->setStoreId((int)$storeId);
+        $this->config->setStoreId(is_object($store) ? $store->getId() : $store);
 
         return $this;
     }
@@ -296,7 +229,7 @@ class Dpo extends AbstractMethod
      */
     public function getConfigPaymentAction(): string
     {
-        return $this->config->getPaymentAction();
+        return '';
     }
 
     /**
@@ -308,7 +241,7 @@ class Dpo extends AbstractMethod
      */
     public function isAvailable(CartInterface $quote = null): bool
     {
-        return parent::isAvailable($quote) && $this->config->isMethodAvailable();
+        return $this->config->isMethodAvailable();
     }
 
     /**
@@ -317,26 +250,29 @@ class Dpo extends AbstractMethod
     public function getStandardCheckoutFormFields(): bool|array
     {
         $pre = __METHOD__ . ' : ';
-        $this->_logger->debug($pre . 'bof');
+        $this->logger->debug($pre . 'bof');
 
         $order    = $this->checkoutSession->getLastRealOrder();
-        $testMode = $this->_scopeConfig->getValue('payment/dpo/test_mode');
-        $this->_logger->debug($pre . 'serverMode : ' . $testMode);
+        $testMode = $this->scopeConfig->getValue('payment/dpo/test_mode');
+        $this->logger->debug($pre . 'serverMode : ' . $testMode);
 
-        $dpo          = new Dpopay($this->_logger, $this->curl, $testMode);
-        $companyToken = $this->getCompanyToken($testMode);
-        $serviceType  = $this->getServiceType($testMode);
-        $payUrl       = $dpo->getDpoGateway();
+        $dpo       = new Dpopay($this->logger, $this->client, $testMode);
+        $dpoCommon = new DpoCommon(true);
 
-        $billing = $order->getBillingAddress();
-        $data    = $this->preparePaymentData($order, $billing, $companyToken, $serviceType);
+        $data                  = [];
+        $companyToken          = $this->getCompanyToken($testMode);
+        $serviceType           = $this->getServiceType($testMode);
+        $payUrl                = $dpo->getDpoGateway();
+        $data                  = $this->preparePaymentData($order, $companyToken, $serviceType);
+        $data['serviceType']   = $serviceType;
+        $data['companyAccRef'] = $order->getId();
 
-        $tokens = $dpo->createToken($data);
+        $tokens = $dpoCommon->createToken($data);
 
         return $this->processTokenResponse(
             $tokens,
             $data,
-            $dpo,
+            $dpoCommon,
             $payUrl,
             $companyToken,
             $order->getRealOrderId(),
@@ -348,13 +284,25 @@ class Dpo extends AbstractMethod
      * Prepare the payment data
      *
      * @param object $order
-     * @param object $billing
      * @param string $companyToken
      * @param string $serviceType
      *
      * @return array
      */
-    private function preparePaymentData($order, $billing, $companyToken, $serviceType): array
+    private function preparePaymentData(object $order, string $companyToken, string $serviceType): array
+    {
+        // Try to get the billing address using the order address repository
+        try {
+            $billingAddress = $this->orderAddressRepository->get($order->getBillingAddressId());
+        } catch (\Exception $e) {
+            // Handle cases where the billing address is not found
+            $billingAddress = null;
+        }
+
+        return $this->buildPaymentDataArray($order, $billingAddress, $companyToken, $serviceType);
+    }
+
+    private function buildPaymentDataArray($order, $billing, $companyToken, $serviceType): array
     {
         $paymentCurrency = $order->getOrderCurrencyCode();
         if ($paymentCurrency == 'ZWD') {
@@ -366,18 +314,18 @@ class Dpo extends AbstractMethod
             'accountType'        => $serviceType,
             'paymentAmount'      => $order->getGrandTotal(),
             'paymentCurrency'    => $paymentCurrency,
-            'customerFirstName'  => $billing->getFirstname(),
-            'customerLastName'   => $billing->getLastname(),
-            'customerAddress'    => $billing->getStreet()[0],
-            'customerCity'       => $billing->getCity(),
-            'customerPhone'      => $billing->getTelephone(),
-            'customerEmail'      => $billing->getEmail(),
+            'customerFirstName'  => $billing ? $billing->getFirstname() : '',
+            'customerLastName'   => $billing ? $billing->getLastname() : '',
+            'customerAddress'    => $billing ? $billing->getStreet()[0] : '',
+            'customerCity'       => $billing ? $billing->getCity() : '',
+            'customerPhone'      => $billing ? $billing->getTelephone() : '',
+            'customerEmail'      => $billing ? $billing->getEmail() : '',
             'redirectURL'        => $this->getPaidSuccessUrl(),
-            'backUrl'            => $this->getPaidSuccessUrl(),
+            'backURL'            => $this->getPaidSuccessUrl(),
             'companyRef'         => $order->getRealOrderId(),
-            'payment_country'    => $billing->getCountryId(),
-            'payment_country_id' => $billing->getCountryId(),
-            'payment_postcode'   => $billing->getPostcode()
+            'payment_country'    => $billing ? $billing->getCountryId() : '',
+            'payment_country_id' => $billing ? $billing->getCountryId() : '',
+            'payment_postcode'   => $billing ? $billing->getPostcode() : ''
         ];
     }
 
@@ -386,7 +334,7 @@ class Dpo extends AbstractMethod
      *
      * @param $tokens
      * @param $data
-     * @param $dpo
+     * @param DpoCommon $dpo
      * @param $payUrl
      * @param $companyToken
      * @param $companyRef
@@ -413,7 +361,7 @@ class Dpo extends AbstractMethod
                 try {
                     $verify = new SimpleXMLElement($verify);
                 } catch (Exception $e) {
-                    $this->_logger->debug($e->getMessage());
+                    $this->logger->debug($e->getMessage());
                 }
                 if ($verify->Result->__toString() === '900') {
                     return $this->prepareResponseData(
@@ -449,17 +397,34 @@ class Dpo extends AbstractMethod
         ];
 
         try {
-            $this->dataFactory->create()->addData(
-                ['recordtype' => 'dpotest', 'recordid' => $transToken, 'recordval' => $testMode]
-            )->save();
-            $this->dataFactory->create()->addData(
-                ['recordtype' => 'dpoclient', 'recordid' => $transToken, 'recordval' => $companyToken]
-            )->save();
-            $this->dataFactory->create()->addData(
-                ['recordtype' => 'dporef', 'recordid' => $transToken, 'recordval' => $companyRef]
-            )->save();
+            // First transaction record
+            $transactionData = $this->dataFactory->create();
+            $transactionData->addData([
+                                          'recordtype' => 'dpotest',
+                                          'recordid'   => $transToken,
+                                          'recordval'  => $testMode
+                                      ]);
+            $this->transactionDataRepository->save($transactionData);
+
+            // Second transaction record
+            $transactionData = $this->dataFactory->create();
+            $transactionData->addData([
+                                          'recordtype' => 'dpoclient',
+                                          'recordid'   => $transToken,
+                                          'recordval'  => $companyToken
+                                      ]);
+            $this->transactionDataRepository->save($transactionData);
+
+            // Third transaction record
+            $transactionData = $this->dataFactory->create();
+            $transactionData->addData([
+                                          'recordtype' => 'dporef',
+                                          'recordid'   => $transToken,
+                                          'recordval'  => $companyRef
+                                      ]);
+            $this->transactionDataRepository->save($transactionData);
         } catch (Exception $e) {
-            $this->_logger->error($e->getMessage());
+            $this->logger->error($e->getMessage());
         }
 
         return $data;
@@ -531,7 +496,7 @@ class Dpo extends AbstractMethod
         $stateObject->setStatus('pending_payment');
         $stateObject->setIsNotified(false);
 
-        return parent::initialize($paymentAction, $stateObject);
+        return $this;
     }
 
     /**
@@ -556,12 +521,12 @@ class Dpo extends AbstractMethod
     {
         try {
             // Initialize Curl instance
-            $this->curl->post($url, $fields);
+            $response = $this->client->post($url, $fields);
 
             // Get the response
-            return $this->curl->getBody();
-        } catch (\Exception $e) {
-            $this->_logger->error('Curl error: ' . $e->getMessage());
+            return $response->getBody()->getContents();
+        } catch (RequestException $e) {
+            $this->logger->error('Request failed: ' . $e->getMessage());
 
             return false;
         }
@@ -595,7 +560,7 @@ class Dpo extends AbstractMethod
      */
     protected function getStoreName(): mixed
     {
-        return $this->_scopeConfig->getValue(
+        return $this->scopeConfig->getValue(
             'general/store_information/name',
             ScopeInterface::SCOPE_STORE
         );
@@ -612,7 +577,7 @@ class Dpo extends AbstractMethod
     protected function _placeOrder(Payment $payment, float $amount)
     {
         $pre = __METHOD__ . " : ";
-        $this->_logger->debug($pre . 'bof');
+        $this->logger->debug($pre . 'bof');
 
         return null;
     }
@@ -643,7 +608,7 @@ class Dpo extends AbstractMethod
     private function getCompanyToken(bool $testMode): string
     {
         if ($testMode != 1) {
-            $companyToken = $this->_scopeConfig->getValue('payment/dpo/company_token');
+            $companyToken = $this->scopeConfig->getValue('payment/dpo/company_token');
         } else {
             $companyToken = '9F416C11-127B-4DE2-AC7F-D5710E4C5E0A';
         }
@@ -661,11 +626,553 @@ class Dpo extends AbstractMethod
     private function getServiceType(bool $testMode): string
     {
         if ($testMode != 1) {
-            $serviceType = $this->_scopeConfig->getValue('payment/dpo/service_type');
+            $serviceType = $this->scopeConfig->getValue('payment/dpo/service_type');
         } else {
             $serviceType = '3854';
         }
 
         return $serviceType;
+    }
+
+    /**
+     * Retrieve payment method code
+     *
+     * @return string
+     *
+     */
+    public function getCode()
+    {
+        return Config::METHOD_CODE;
+    }
+
+    /**
+     * Retrieve block type for method form generation
+     *
+     * @return string
+     *
+     * @deprecated 100.0.2
+     */
+    public function getFormBlockType()
+    {
+        return $this->formBlockType;
+    }
+
+    /**
+     * Retrieve payment method title
+     *
+     * @return string
+     *
+     */
+    public function getTitle()
+    {
+        return $this->getConfigData('title');
+    }
+
+    /**
+     * Store id getter
+     * @return int
+     */
+    public function getStore()
+    {
+        return $this->config->getStoreId();
+    }
+
+    /**
+     * Check order availability
+     *
+     * @return bool
+     *
+     */
+    public function canOrder()
+    {
+        return true;
+    }
+
+    /**
+     * Check authorize availability
+     *
+     * @return bool
+     *
+     */
+    public function canAuthorize()
+    {
+        return true;
+    }
+
+    /**
+     * Check capture availability
+     *
+     * @return bool
+     *
+     */
+    public function canCapture()
+    {
+        return true;
+    }
+
+    /**
+     * Check partial capture availability
+     *
+     * @return bool
+     *
+     */
+    public function canCapturePartial()
+    {
+        return false;
+    }
+
+    /**
+     * Check whether capture can be performed once and no further capture possible
+     *
+     * @return bool
+     *
+     */
+    public function canCaptureOnce()
+    {
+        return false;
+    }
+
+    /**
+     * Check refund availability
+     *
+     * @return bool
+     *
+     */
+    public function canRefund()
+    {
+        return false;
+    }
+
+    /**
+     * Check partial refund availability for invoice
+     *
+     * @return bool
+     *
+     */
+    public function canRefundPartialPerInvoice()
+    {
+        return false;
+    }
+
+    /**
+     * Check void availability
+     * @return bool
+     *
+     */
+    public function canVoid()
+    {
+        return false;
+    }
+
+    /**
+     * Using internal pages for input payment data
+     * Can be used in admin
+     *
+     * @return bool
+     */
+    public function canUseInternal()
+    {
+        return true;
+    }
+
+    /**
+     * Can be used in regular checkout
+     *
+     * @return bool
+     */
+    public function canUseCheckout()
+    {
+        return true;
+    }
+
+    /**
+     * Can be edit order (renew order)
+     *
+     * @return bool
+     *
+     */
+    public function canEdit()
+    {
+        return true;
+    }
+
+    /**
+     * Check fetch transaction info availability
+     *
+     * @return bool
+     *
+     */
+    public function canFetchTransactionInfo()
+    {
+        return true;
+    }
+
+    /**
+     * Fetch transaction info
+     *
+     * @param InfoInterface $payment
+     * @param string $transactionId
+     *
+     * @return array
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     *
+     */
+    public function fetchTransactionInfo(InfoInterface $payment, $transactionId)
+    {
+        return [];
+    }
+
+    /**
+     * Retrieve payment system relation flag
+     *
+     * @return bool
+     *
+     */
+    public function isGateway()
+    {
+        return false;
+    }
+
+    /**
+     * Retrieve payment method online/offline flag
+     *
+     * @return bool
+     *
+     */
+    public function isOffline()
+    {
+        return false;
+    }
+
+    /**
+     * Flag if we need to run payment initialize while order place
+     *
+     * @return bool
+     *
+     */
+    public function isInitializeNeeded()
+    {
+        return true;
+    }
+
+    /**
+     * To check billing country is allowed for the payment method
+     *
+     * @param string $country
+     *
+     * @return bool
+     */
+    public function canUseForCountry($country)
+    {
+        /*
+        for specific country, the flag will set up as 1
+        */
+        if ($this->getConfigData('allowspecific') === 1) {
+            $availableCountries = explode(',', $this->getConfigData('specificcountry') ?? '');
+            if (!in_array($country, $availableCountries)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Retrieve block type for display method information
+     *
+     * @return string
+     *
+     * @deprecated 100.0.2
+     */
+    public function getInfoBlockType()
+    {
+        return $this->infoBlockType;
+    }
+
+    /**
+     * Retrieve payment information model object
+     *
+     * @return InfoInterface
+     * @throws \Magento\Framework\Exception\LocalizedException
+     *
+     * @deprecated 100.0.2
+     */
+    public function getInfoInstance()
+    {
+        return $this->infoInstance;
+    }
+
+    /**
+     * Retrieve payment information model object
+     *
+     * @param InfoInterface $info
+     *
+     * @return void
+     *
+     * @deprecated 100.0.2
+     */
+    public function setInfoInstance(InfoInterface $info)
+    {
+        $this->infoInstance = $info;
+    }
+
+    /**
+     * Validate payment method information object
+     *
+     * @return $this
+     * @throws \Magento\Framework\Exception\LocalizedException
+     *
+     */
+    public function validate()
+    {
+        /**
+         * to validate payment method is allowed for billing country or not
+         */
+        $paymentInfo = $this->getPaymentInfo();
+
+        if ($paymentInfo instanceof Payment) {
+            $billingCountry = $paymentInfo->getOrder()->getBillingAddress()->getCountryId();
+        } else {
+            $billingCountry = $paymentInfo->getQuote()->getBillingAddress()->getCountryId();
+        }
+        $billingCountry = $billingCountry ?: $this->directoryHelper->getDefaultCountry();
+
+        if (!$this->canUseForCountry($billingCountry)) {
+            throw new LocalizedException(
+                __('You can\'t use the payment type you selected to make payments to the billing country.')
+            );
+        }
+
+        return $this;
+    }
+
+    /**
+     * Order payment abstract method
+     *
+     * @param InfoInterface $payment
+     * @param float $amount
+     *
+     * @return $this
+     *
+     */
+    public function order(InfoInterface $payment, $amount)
+    {
+        if (!$this->canOrder()) {
+            throw new LocalizedException(__('The order action is not available.'));
+        }
+
+        return $this;
+    }
+
+    /**
+     * Authorize payment abstract method
+     *
+     * @param InfoInterface $payment
+     * @param float $amount
+     *
+     * @return $this
+     *
+     */
+    public function authorize(InfoInterface $payment, $amount)
+    {
+        if (!$this->canAuthorize()) {
+            throw new LocalizedException(__('The authorize action is not available.'));
+        }
+
+        return $this;
+    }
+
+    /**
+     * Capture payment abstract method
+     *
+     * @param InfoInterface $payment
+     * @param float $amount
+     *
+     * @return $this
+     *
+     */
+    public function capture(InfoInterface $payment, $amount)
+    {
+        if (!$this->canCapture()) {
+            throw new LocalizedException(__('The capture action is not available.'));
+        }
+
+        return $this;
+    }
+
+    /**
+     * Refund specified amount for payment
+     *
+     * @param InfoInterface $payment
+     * @param float $amount
+     *
+     * @return $this
+     *
+     */
+    public function refund(InfoInterface $payment, $amount)
+    {
+        return $this;
+    }
+
+    /**
+     * Cancel payment abstract method
+     *
+     * @param InfoInterface $payment
+     *
+     * @return $this
+     *
+     */
+    public function cancel(InfoInterface $payment)
+    {
+        return $this;
+    }
+
+    /**
+     * Void payment abstract method
+     *
+     * @param InfoInterface $payment
+     *
+     * @return $this
+     *
+     */
+    public function void(InfoInterface $payment)
+    {
+        if (!$this->canVoid()) {
+            throw new LocalizedException(__('The void action is not available.'));
+        }
+
+        return $this;
+    }
+
+    /**
+     * Whether this method can accept or deny payment
+     * @return bool
+     *
+     */
+    public function canReviewPayment()
+    {
+        return true;
+    }
+
+    /**
+     * Attempt to accept a payment that us under review
+     *
+     * @param InfoInterface $payment
+     *
+     * @return false
+     * @throws \Magento\Framework\Exception\LocalizedException
+     *
+     */
+    public function acceptPayment(InfoInterface $payment)
+    {
+        if (!$this->canReviewPayment()) {
+            throw new LocalizedException(__('The payment review action is unavailable.'));
+        }
+
+        return false;
+    }
+
+    /**
+     * Attempt to deny a payment that us under review
+     *
+     * @param InfoInterface $payment
+     *
+     * @return false
+     * @throws \Magento\Framework\Exception\LocalizedException
+     *
+     */
+    public function denyPayment(InfoInterface $payment)
+    {
+        if (!$this->canReviewPayment()) {
+            throw new LocalizedException(__('The payment review action is unavailable.'));
+        }
+
+        return false;
+    }
+
+    /**
+     * Retrieve information from payment configuration
+     *
+     * @param string $field
+     * @param int|string|null|\Magento\Store\Model\Store $storeId
+     *
+     * @return mixed
+     */
+    public function getConfigData($field, $storeId = null)
+    {
+        if ('order_place_redirect_url' === $field) {
+            return $this->getOrderPlaceRedirectUrl();
+        }
+        if (null === $storeId) {
+            $storeId = $this->getStore();
+        }
+        $path = 'payment/' . $this->getCode() . '/' . $field;
+
+        return $this->scopeConfig->getValue($path, ScopeInterface::SCOPE_STORE, $storeId);
+    }
+
+    /**
+     * Assign data to info model instance
+     *
+     * @param DataObject $data
+     *
+     * @return $this
+     *
+     */
+    public function assignData(DataObject $data)
+    {
+        $this->eventManager->dispatch(
+            'payment_method_assign_data_' . $this->getCode(),
+            [
+                AbstractDataAssignObserver::METHOD_CODE => $this,
+                AbstractDataAssignObserver::MODEL_CODE  => $this->getPaymentInfo(),
+                AbstractDataAssignObserver::DATA_CODE   => $data
+            ]
+        );
+
+        $this->eventManager->dispatch(
+            'payment_method_assign_data',
+            [
+                AbstractDataAssignObserver::METHOD_CODE => $this,
+                AbstractDataAssignObserver::MODEL_CODE  => $this->getPaymentInfo(),
+                AbstractDataAssignObserver::DATA_CODE   => $data
+            ]
+        );
+
+        return $this;
+    }
+
+    /**
+     * Is active
+     *
+     * @param int|null $storeId
+     *
+     * @return bool
+     *
+     */
+    public function isActive($storeId = null)
+    {
+        return (bool)(int)$this->getConfigData('active', $storeId);
+    }
+
+    /**
+     * Get the current payment information dynamically
+     *
+     * @return OrderPayment|QuotePayment
+     * @throws LocalizedException
+     */
+    protected function getPaymentInfo()
+    {
+        // This assumes you're in a context where you can access the current order or quote
+        $quote = $this->checkoutSession->getQuote();
+        $order = $this->checkoutSession->getLastRealOrder();
+
+        if ($order && $order->getPayment()) {
+            return $order->getPayment(); // Return OrderPayment
+        } elseif ($quote && $quote->getPayment()) {
+            return $quote->getPayment(); // Return QuotePayment
+        }
+
+        throw new LocalizedException(__('No payment information available.'));
     }
 }
